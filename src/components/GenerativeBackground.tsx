@@ -2,25 +2,21 @@
 
 import { useEffect, useRef } from 'react';
 
-const PIECE_COUNT = 20;
+const PIECE_COUNT = 18;
 
-type ArtType = 'lines' | 'rings' | 'constellation' | 'fragments' | 'spiral' | 'vortex';
-const ART_TYPES: ArtType[] = ['lines', 'rings', 'constellation', 'fragments', 'spiral', 'vortex'];
+type ArtType = 'gridFragment' | 'signalLine' | 'dotCluster';
+const ART_TYPES: ArtType[] = ['gridFragment', 'signalLine', 'dotCluster'];
 
 interface Dot { x: number; y: number; vx: number; vy: number; }
-interface Poly { vertices: { x: number; y: number }[]; phase: number; }
-interface Particle { baseAngle: number; phase: number; }
 
 interface Piece {
   type: ArtType;
-  nx: number;   // normalized 0..1 position
+  nx: number;
   ny: number;
   depth: number;
   opacity: number;
   phase: number;
   dots?: Dot[];
-  polys?: Poly[];
-  particles?: Particle[];
 }
 
 function seeded(seed: number) {
@@ -40,88 +36,108 @@ function buildPieces(): Piece[] {
       nx: r() * 0.88 + 0.06,
       ny: r() * 0.88 + 0.06,
       depth: r() * 0.05 + 0.01,
-      opacity: r() * 0.04 + 0.025,
+      opacity: r() * 0.04 + 0.02,
       phase: r() * Math.PI * 2,
     };
-    if (type === 'constellation') {
-      piece.dots = Array.from({ length: 12 }, () => ({
-        x: (r() - 0.5) * 260,
-        y: (r() - 0.5) * 260,
-        vx: (r() - 0.5) * 0.12,
-        vy: (r() - 0.5) * 0.12,
-      }));
-    }
-    if (type === 'fragments') {
-      piece.polys = Array.from({ length: 6 }, () => {
-        const sides = Math.floor(r() * 3) + 3;
-        const size = r() * 40 + 18;
-        const cx = (r() - 0.5) * 140;
-        const cy = (r() - 0.5) * 140;
-        const angle0 = r() * Math.PI * 2;
-        return {
-          vertices: Array.from({ length: sides }, (__, j) => ({
-            x: cx + Math.cos(angle0 + (j / sides) * Math.PI * 2) * size,
-            y: cy + Math.sin(angle0 + (j / sides) * Math.PI * 2) * size,
-          })),
-          phase: r() * Math.PI * 2,
-        };
-      });
-    }
-    if (type === 'vortex') {
-      piece.particles = Array.from({ length: 42 }, () => ({
-        baseAngle: r() * Math.PI * 2,
-        phase: r(),
+    if (type === 'dotCluster') {
+      piece.dots = Array.from({ length: 18 }, () => ({
+        x: (r() - 0.5) * 220,
+        y: (r() - 0.5) * 220,
+        vx: (r() - 0.5) * 0.09,
+        vy: (r() - 0.5) * 0.09,
       }));
     }
     return piece;
   });
 }
 
-function drawLines(ctx: CanvasRenderingContext2D, t: number, alpha: number) {
-  ctx.lineWidth = 0.7;
-  const W = 240, H = 160;
-  for (let i = 0; i < 9; i++) {
-    const y = (i / 8) * H - H / 2;
+/* ── Grid Fragment ───────────────────────────────────────────────────────── */
+function drawGridFragment(ctx: CanvasRenderingContext2D, t: number, alpha: number) {
+  const cols = 7;
+  const rows = 5;
+  const W = 200;
+  const H = 140;
+  ctx.lineWidth = 0.5;
+
+  // vertical lines with horizontal wave
+  for (let c = 0; c <= cols; c++) {
+    const x = (c / cols) * W - W / 2;
     ctx.beginPath();
-    for (let x = -W / 2; x <= W / 2; x += 3) {
-      const dy = Math.sin(x * 0.025 + t + i * 0.55) * 22;
-      if (x === -W / 2) ctx.moveTo(x, y + dy);
+    for (let step = 0; step <= rows * 4; step++) {
+      const y = (step / (rows * 4)) * H - H / 2;
+      const dx = Math.sin(y * 0.06 + t * 0.7 + c * 0.9) * 10;
+      if (step === 0) ctx.moveTo(x + dx, y);
+      else ctx.lineTo(x + dx, y);
+    }
+    ctx.globalAlpha = alpha * (0.5 + 0.5 * Math.abs(Math.sin(c * 0.7 + t * 0.3)));
+    ctx.stroke();
+  }
+
+  // horizontal lines with vertical wave
+  for (let ro = 0; ro <= rows; ro++) {
+    const y = (ro / rows) * H - H / 2;
+    ctx.beginPath();
+    for (let step = 0; step <= cols * 4; step++) {
+      const x = (step / (cols * 4)) * W - W / 2;
+      const dy = Math.sin(x * 0.05 + t * 0.5 + ro * 1.1) * 8;
+      if (step === 0) ctx.moveTo(x, y + dy);
       else ctx.lineTo(x, y + dy);
     }
-    ctx.globalAlpha = alpha * (0.6 + 0.4 * Math.abs(Math.cos(i * 0.8)));
+    ctx.globalAlpha = alpha * (0.4 + 0.6 * Math.abs(Math.cos(ro * 0.8 + t * 0.2)));
     ctx.stroke();
   }
 }
 
-function drawRings(ctx: CanvasRenderingContext2D, t: number, alpha: number) {
+/* ── Signal Line ─────────────────────────────────────────────────────────── */
+function drawSignalLine(ctx: CanvasRenderingContext2D, t: number, alpha: number) {
   ctx.lineWidth = 0.6;
-  for (let i = 1; i <= 7; i++) {
-    const r = i * 18;
-    ctx.save();
-    ctx.rotate(t * 0.07 + i * 0.4);
+  const W = 260;
+  const lineCount = 6;
+
+  for (let i = 0; i < lineCount; i++) {
+    const yBase = ((i / (lineCount - 1)) - 0.5) * 120;
+    const freq1 = 0.022 + i * 0.004;
+    const freq2 = 0.047 + i * 0.003;
+    const amp   = 16 + i * 3;
+    const speed = 1.4 + i * 0.3;
+
     ctx.beginPath();
-    ctx.ellipse(0, 0, r, r * 0.62, 0, 0, Math.PI * 2);
-    ctx.globalAlpha = alpha * (1 - i * 0.08);
+    for (let px = -W / 2; px <= W / 2; px += 2) {
+      const dy = Math.sin(px * freq1 + t * speed) * amp
+               + Math.sin(px * freq2 + t * speed * 0.6 + i) * (amp * 0.4);
+      if (px === -W / 2) ctx.moveTo(px, yBase + dy);
+      else ctx.lineTo(px, yBase + dy);
+    }
+
+    // scan envelope: bright band sweeps left→right
+    const scan = ((t * 0.4 + i * 0.17) % 1);
+    const scanX = scan * W - W / 2;
+    const distToScan = Math.abs(0 - scanX) / (W / 2); // distance from center
+    const envelope = Math.max(0, 1 - distToScan * 1.2);
+    ctx.globalAlpha = alpha * (0.35 + envelope * 0.65);
     ctx.stroke();
-    ctx.restore();
   }
 }
 
-function drawConstellation(ctx: CanvasRenderingContext2D, alpha: number, dots: Dot[]) {
+/* ── Dot Cluster ─────────────────────────────────────────────────────────── */
+function drawDotCluster(ctx: CanvasRenderingContext2D, t: number, alpha: number, dots: Dot[]) {
+  // gently orbit center
   for (const d of dots) {
-    d.x += d.vx;
-    d.y += d.vy;
-    if (Math.abs(d.x) > 130) d.vx *= -1;
-    if (Math.abs(d.y) > 130) d.vy *= -1;
+    d.x += d.vx + Math.sin(t * 0.4 + d.y * 0.01) * 0.04;
+    d.y += d.vy + Math.cos(t * 0.35 + d.x * 0.01) * 0.04;
+    if (Math.abs(d.x) > 110) d.vx *= -1;
+    if (Math.abs(d.y) > 110) d.vy *= -1;
   }
-  ctx.lineWidth = 0.45;
+
+  // connection lines between nearby dots
+  ctx.lineWidth = 0.4;
   for (let i = 0; i < dots.length; i++) {
     for (let j = i + 1; j < dots.length; j++) {
       const dx = dots[i].x - dots[j].x;
       const dy = dots[i].y - dots[j].y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 90) {
-        ctx.globalAlpha = alpha * (1 - dist / 90) * 0.7;
+      if (dist < 75) {
+        ctx.globalAlpha = alpha * (1 - dist / 75) * 0.6;
         ctx.beginPath();
         ctx.moveTo(dots[i].x, dots[i].y);
         ctx.lineTo(dots[j].x, dots[j].y);
@@ -129,56 +145,13 @@ function drawConstellation(ctx: CanvasRenderingContext2D, alpha: number, dots: D
       }
     }
   }
-  ctx.globalAlpha = alpha * 2.5;
+
+  // dot nodes — pulse with time
   for (const d of dots) {
+    const pulse = 0.7 + 0.3 * Math.sin(t * 1.1 + d.x * 0.05);
+    ctx.globalAlpha = alpha * 2.8 * pulse;
     ctx.beginPath();
-    ctx.arc(d.x, d.y, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawFragments(ctx: CanvasRenderingContext2D, t: number, alpha: number, polys: Poly[]) {
-  ctx.lineWidth = 0.65;
-  for (const poly of polys) {
-    const pulse = 0.85 + Math.sin(t * 0.9 + poly.phase) * 0.15;
-    ctx.globalAlpha = alpha * pulse;
-    ctx.beginPath();
-    poly.vertices.forEach((v, idx) => {
-      const x = v.x * pulse;
-      const y = v.y * pulse;
-      if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.closePath();
-    ctx.stroke();
-  }
-}
-
-function drawSpiral(ctx: CanvasRenderingContext2D, t: number, alpha: number) {
-  ctx.lineWidth = 0.7;
-  ctx.globalAlpha = alpha;
-  ctx.beginPath();
-  const turns = 4.5;
-  const steps = 320;
-  for (let i = 0; i < steps; i++) {
-    const theta = (i / steps) * Math.PI * 2 * turns + t * 0.18;
-    const rr = (i / steps) * 110;
-    const x = Math.cos(theta) * rr;
-    const y = Math.sin(theta) * rr;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
-
-function drawVortex(ctx: CanvasRenderingContext2D, t: number, alpha: number, particles: Particle[]) {
-  for (const p of particles) {
-    const progress = ((t * 0.18 + p.phase) % 1 + 1) % 1;
-    const rr = 110 * (1 - progress);
-    const angle = p.baseAngle + progress * Math.PI * 5;
-    const x = Math.cos(angle) * rr;
-    const y = Math.sin(angle) * rr;
-    ctx.globalAlpha = alpha * 2.2 * (1 - progress);
-    ctx.beginPath();
-    ctx.arc(x, y, 0.9, 0, Math.PI * 2);
+    ctx.arc(d.x, d.y, 1.1, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -186,8 +159,8 @@ function drawVortex(ctx: CanvasRenderingContext2D, t: number, alpha: number, par
 export default function GenerativeBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const piecesRef = useRef<Piece[]>(buildPieces());
-  const rafRef = useRef<number>(0);
-  const mouseRef = useRef({ x: 0, y: 0 });
+  const rafRef    = useRef<number>(0);
+  const mouseRef  = useRef({ x: 0, y: 0 });
   const smoothRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -197,13 +170,13 @@ export default function GenerativeBackground() {
     if (!ctx) return;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
+      canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
     };
     resize();
 
     const onMouse = (e: MouseEvent) => {
-      mouseRef.current.x = e.clientX - window.innerWidth / 2;
+      mouseRef.current.x = e.clientX - window.innerWidth  / 2;
       mouseRef.current.y = e.clientY - window.innerHeight / 2;
     };
 
@@ -215,7 +188,6 @@ export default function GenerativeBackground() {
     const tick = (now: number) => {
       const t = (now - startTime) * 0.001;
 
-      // Lerp mouse
       smoothRef.current.x += (mouseRef.current.x - smoothRef.current.x) * 0.06;
       smoothRef.current.y += (mouseRef.current.y - smoothRef.current.y) * 0.06;
 
@@ -224,24 +196,21 @@ export default function GenerativeBackground() {
       for (const piece of piecesRef.current) {
         const baseX = piece.nx * canvas.width;
         const baseY = piece.ny * canvas.height;
-        const offX = smoothRef.current.x * piece.depth;
-        const offY = smoothRef.current.y * piece.depth;
+        const offX  = smoothRef.current.x * piece.depth;
+        const offY  = smoothRef.current.y * piece.depth;
 
         ctx.save();
         ctx.translate(baseX + offX, baseY + offY);
         ctx.strokeStyle = '#f0ece4';
-        ctx.fillStyle = '#f0ece4';
+        ctx.fillStyle   = '#f0ece4';
         ctx.globalAlpha = piece.opacity;
 
         const t2 = t + piece.phase;
 
         switch (piece.type) {
-          case 'lines':       drawLines(ctx, t2, piece.opacity); break;
-          case 'rings':       drawRings(ctx, t2, piece.opacity); break;
-          case 'constellation': drawConstellation(ctx, piece.opacity, piece.dots!); break;
-          case 'fragments':   drawFragments(ctx, t2, piece.opacity, piece.polys!); break;
-          case 'spiral':      drawSpiral(ctx, t2, piece.opacity); break;
-          case 'vortex':      drawVortex(ctx, t2, piece.opacity, piece.particles!); break;
+          case 'gridFragment': drawGridFragment(ctx, t2, piece.opacity); break;
+          case 'signalLine':   drawSignalLine(ctx, t2, piece.opacity);   break;
+          case 'dotCluster':   drawDotCluster(ctx, t2, piece.opacity, piece.dots!); break;
         }
 
         ctx.restore();
