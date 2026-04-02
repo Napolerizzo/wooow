@@ -123,7 +123,7 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '-0.01em',
   },
   tagline: {
-    fontFamily: 'var(--font-caveat)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '20px',
     color: '#555',
     fontStyle: 'italic',

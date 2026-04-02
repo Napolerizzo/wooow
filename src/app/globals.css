@@ -1,9 +1,9 @@
+/* ─── Google Fonts ─────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* ─── Google Fonts ─────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Permanent+Marker&family=Special+Elite&family=Caveat:wght@400;600&display=swap');
 
 /* ─── CSS Reset ─────────────────────────────────────────────────────────── */
 *, *::before, *::after {
@@ -23,10 +23,10 @@
   --border-emphasis: #333333;
   --grain-opacity:   0.52;
 
-  --font-wordmark: 'Rubik Dirt', cursive;
-  --font-heading:  'Permanent Marker', cursive;
-  --font-body:     'Special Elite', cursive;
-  --font-caveat:   'Caveat', cursive;
+  --font-wordmark: 'Syne', sans-serif;
+  --font-heading:  'Syne', sans-serif;
+  --font-body:     'DM Mono', monospace;
+  --font-mono:     'DM Mono', monospace;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────── */
@@ -70,10 +70,10 @@ select:hover {
 }
 
 /* ─── Typography helpers ─────────────────────────────────────────────────── */
-.font-wordmark { font-family: var(--font-wordmark); }
-.font-heading  { font-family: var(--font-heading); }
+.font-wordmark { font-family: var(--font-wordmark); font-weight: 800; }
+.font-heading  { font-family: var(--font-heading); font-weight: 700; }
 .font-body     { font-family: var(--font-body); }
-.font-caveat   { font-family: var(--font-caveat); }
+.font-mono     { font-family: var(--font-mono); }
 
 /* ─── Input: bottom-line only ────────────────────────────────────────────── */
 .input-line {

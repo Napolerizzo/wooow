@@ -193,7 +193,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
   },
   emptySub: {
-    fontFamily: 'var(--font-caveat)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '18px',
     color: '#1e1e1e',
     fontStyle: 'italic',

@@ -6,8 +6,14 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 const CYCLE_FONTS = [
-  'Playfair Display', 'Bebas Neue', 'Courier Prime', 'Abril Fatface',
-  'Space Mono', 'Oswald', 'Libre Baskerville', 'Rubik Dirt',
+  '"DM Mono", monospace',
+  '"Courier New", monospace',
+  '"Arial Black", sans-serif',
+  '"Impact", sans-serif',
+  '"Georgia", serif',
+  '"Trebuchet MS", sans-serif',
+  '"Lucida Console", monospace',
+  '"Syne", sans-serif',
 ];
 
 const COMMITTEE_NAV = [
@@ -203,13 +209,13 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: 'auto',
   },
   userName: {
-    fontFamily: 'var(--font-body)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '13px',
     color: '#555',
     textDecoration: 'none',
   },
   authBtn: {
-    fontFamily: 'var(--font-body)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '13px',
     color: '#444',
     background: 'none',
@@ -228,13 +234,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2px',
   },
   domain: {
-    fontFamily: 'var(--font-body)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '11px',
     color: '#2a2a2a',
     letterSpacing: '0.03em',
   },
   copy: {
-    fontFamily: 'var(--font-body)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '10px',
     color: '#222',
   },
@@ -250,6 +256,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   navItem: {
     fontFamily: 'var(--font-heading)',
+    fontWeight: 700,
     fontSize: '15px',
     textDecoration: 'none',
     letterSpacing: '0.04em',

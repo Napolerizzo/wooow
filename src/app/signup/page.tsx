@@ -111,7 +111,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '6px',
   },
   subheading: {
-    fontFamily: 'var(--font-caveat)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '16px',
     color: '#555',
     fontStyle: 'italic',

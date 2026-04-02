@@ -22,7 +22,7 @@ export default function CommitteeLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative', zIndex: 10 }}>
-      {/* Committee name watermark — Rubik Dirt, 180px, 2.5% opacity */}
+      {/* Committee name watermark — Syne 800, 180px, 2.5% opacity */}
       {committeeName && (
         <div
           aria-hidden="true"

@@ -10,7 +10,7 @@ interface ErrorOverlayProps {
 
 /**
  * Full-screen dark overlay for fatal errors.
- * Uses Permanent Marker font as per aesthetic spec.
+ * Uses Syne font as per aesthetic spec.
  */
 export default function ErrorOverlay({ message, sub, onDismiss }: ErrorOverlayProps) {
   return (

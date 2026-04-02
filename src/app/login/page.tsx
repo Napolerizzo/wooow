@@ -268,7 +268,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
   },
   subheading: {
-    fontFamily: 'var(--font-caveat)',
+    fontFamily: 'var(--font-mono)',
     fontSize: '16px',
     color: '#555',
     fontStyle: 'italic',
