@@ -16,7 +16,7 @@ export default function GrainOverlay() {
         height: '100vh',
         zIndex: 9999,
         pointerEvents: 'none',
-        opacity: 'var(--grain-opacity)',
+        opacity: 0.52,
       }}
     >
       <svg
@@ -28,8 +28,8 @@ export default function GrainOverlay() {
         <filter id="grain-filter">
           <feTurbulence
             type="fractalNoise"
-            baseFrequency="0.65"
-            numOctaves="3"
+            baseFrequency="0.68"
+            numOctaves="4"
             stitchTiles="stitch"
           />
           <feColorMatrix type="saturate" values="0" />

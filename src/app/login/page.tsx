@@ -8,21 +8,12 @@ import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'choose' | 'signin' | 'guest';
 
-/** Reads search params inside a Suspense boundary (Next.js App Router requirement). */
-function SessionExpiredDetector({
-  onExpired,
-  onGuestMode,
-}: {
-  onExpired: () => void;
-  onGuestMode: () => void;
-}) {
+function SessionExpiredDetector({ onExpired, onGuestMode }: { onExpired: () => void; onGuestMode: () => void; }) {
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams?.get('expired') === '1') {
       onExpired();
-      if (searchParams.get('redirect')?.startsWith('/committee/')) {
-        onGuestMode();
-      }
+      if (searchParams.get('redirect')?.startsWith('/committee/')) onGuestMode();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -44,20 +35,13 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (signInError) {
-      // Never reveal whether email exists
       setError('Invalid credentials.');
       setLoading(false);
       return;
     }
-
     const params = new URLSearchParams(window.location.search);
     router.push(params.get('redirect') ?? '/dashboard');
   }
@@ -66,25 +50,14 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    // Normalize access code to uppercase
-    const code = accessCode.trim().toUpperCase();
-
     try {
       const res = await fetch('/api/auth/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_code: code, guest_name: guestName.trim() }),
+        body: JSON.stringify({ access_code: accessCode.trim().toUpperCase(), guest_name: guestName.trim() }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? 'Invalid access code.');
-        setLoading(false);
-        return;
-      }
-
+      if (!res.ok) { setError(data.error ?? 'Invalid access code.'); setLoading(false); return; }
       router.push(`/committee/${data.committee_id}`);
     } catch {
       setError('Network error. Please try again.');
@@ -93,398 +66,240 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={styles.main}>
-      {/* Reads ?expired=1 from URL inside a Suspense boundary */}
+    <main style={styles.root}>
       <Suspense fallback={null}>
-        <SessionExpiredDetector
-          onExpired={() => setSessionExpired(true)}
-          onGuestMode={() => setMode('guest')}
-        />
+        <SessionExpiredDetector onExpired={() => setSessionExpired(true)} onGuestMode={() => setMode('guest')} />
       </Suspense>
 
       {/* Session expired banner */}
       <AnimatePresence>
         {sessionExpired && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            style={styles.expiredBanner}
-            role="alert"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            style={styles.expiredBanner} role="alert"
           >
-            <span style={styles.expiredIcon}>⚠</span>
-            <span>SESSION EXPIRED — please enter the access code again to rejoin</span>
+            SESSION EXPIRED — enter your access code to rejoin
           </motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
+        {/* CHOOSE MODE */}
         {mode === 'choose' && (
           <motion.div
             key="choose"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.4 }}
-            style={styles.chooseContainer}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.35 }}
+            style={styles.chooseWrap}
           >
-            <p style={styles.wordmark}>MARKZO</p>
-
-            <nav style={styles.nav} aria-label="Login options">
-              <motion.button
-                onClick={() => setMode('signin')}
-                style={styles.navItem}
-                whileHover={{ x: 6 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                aria-label="Sign in with email and password"
-              >
-                SIGN IN
-              </motion.button>
-
-              <motion.button
-                onClick={() => setMode('guest')}
-                style={styles.navItem}
-                whileHover={{ x: 6 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                aria-label="Enter a committee as a guest with access code"
-              >
-                ENTER AS GUEST
-              </motion.button>
+            <nav style={styles.chooseNav} aria-label="Login options">
+              {[
+                { label: 'SIGN IN', onClick: () => setMode('signin') },
+                { label: 'ENTER AS GUEST', onClick: () => setMode('guest') },
+              ].map(({ label, onClick }) => (
+                <motion.button
+                  key={label}
+                  onClick={onClick}
+                  style={styles.chooseBtn}
+                  whileHover={{ x: 8 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                >
+                  {label}
+                </motion.button>
+              ))}
             </nav>
-
-            <p style={styles.signupLink}>
-              no account?{' '}
-              <Link href="/signup" style={styles.link}>
-                JOIN MARKZO
-              </Link>
+            <p style={styles.chooseSubtext}>
+              no account?&nbsp;
+              <Link href="/signup" style={styles.subtextLink} className="link-underline">start one →</Link>
             </p>
           </motion.div>
         )}
 
+        {/* SIGN IN */}
         {mode === 'signin' && (
           <motion.div
             key="signin"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.35 }}
-            style={styles.formContainer}
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.3 }}
+            style={styles.formWrap}
           >
-            <button
-              onClick={() => { setMode('choose'); setError(''); }}
-              style={styles.back}
-              aria-label="Go back"
-            >
-              ← BACK
-            </button>
-
+            <button onClick={() => { setMode('choose'); setError(''); }} style={styles.back}>← BACK</button>
             <h1 style={styles.heading}>SIGN IN</h1>
-
             <form onSubmit={handleSignIn} style={styles.form} noValidate>
               <div style={styles.field}>
                 <label htmlFor="email" style={styles.label}>EMAIL</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  maxLength={255}
-                  autoComplete="email"
-                  style={styles.input}
-                  aria-required="true"
-                />
+                <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  required maxLength={255} autoComplete="email" className="input-line" aria-required="true" />
               </div>
-
               <div style={styles.field}>
                 <label htmlFor="password" style={styles.label}>PASSWORD</label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  maxLength={128}
-                  autoComplete="current-password"
-                  style={styles.input}
-                  aria-required="true"
-                />
+                <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  required maxLength={128} autoComplete="current-password" className="input-line" aria-required="true" />
               </div>
-
-              {error && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  style={styles.error}
-                  role="alert"
-                >
-                  {error}
-                </motion.p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{ ...styles.button, opacity: loading ? 0.5 : 1 }}
-              >
+              {error && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.error} role="alert">{error}</motion.p>}
+              <button type="submit" disabled={loading} className="btn-outline" style={{ marginTop: '8px' }}>
                 {loading ? <span className="loading-text">SIGNING IN</span> : 'SIGN IN →'}
               </button>
             </form>
           </motion.div>
         )}
 
+        {/* GUEST */}
         {mode === 'guest' && (
           <motion.div
             key="guest"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.35 }}
-            style={styles.formContainer}
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.3 }}
+            style={styles.formWrap}
           >
-            <button
-              onClick={() => { setMode('choose'); setError(''); }}
-              style={styles.back}
-              aria-label="Go back"
-            >
-              ← BACK
-            </button>
-
+            <button onClick={() => { setMode('choose'); setError(''); }} style={styles.back}>← BACK</button>
             <h1 style={styles.heading}>ENTER AS GUEST</h1>
-            <p style={styles.hint}>you need a committee access code from your chair</p>
-
+            <p style={styles.subheading}>you need an access code from your chair.</p>
             <form onSubmit={handleGuestAccess} style={styles.form} noValidate>
               <div style={styles.field}>
                 <label htmlFor="guest_name" style={styles.label}>YOUR NAME</label>
-                <input
-                  id="guest_name"
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  required
-                  maxLength={100}
-                  autoComplete="name"
-                  style={styles.input}
-                  aria-required="true"
-                />
+                <input id="guest_name" type="text" value={guestName} onChange={e => setGuestName(e.target.value)}
+                  required maxLength={100} autoComplete="name" className="input-line" aria-required="true" />
               </div>
-
               <div style={styles.field}>
                 <label htmlFor="access_code" style={styles.label}>ACCESS CODE</label>
-                <input
-                  id="access_code"
-                  type="text"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  required
-                  maxLength={8}
-                  autoComplete="off"
-                  placeholder="8-CHARACTER CODE"
-                  style={{ ...styles.input, letterSpacing: '0.2em', textTransform: 'uppercase' }}
-                  aria-required="true"
-                  aria-describedby="code-hint"
-                />
-                <span id="code-hint" style={styles.hintText}>
-                  8 characters, uppercase letters and numbers
-                </span>
+                <input id="access_code" type="text" value={accessCode}
+                  onChange={e => setAccessCode(e.target.value.toUpperCase())}
+                  required maxLength={8} autoComplete="off" placeholder="8-CHARACTER CODE"
+                  className="input-line" style={{ letterSpacing: '0.2em', textTransform: 'uppercase' }}
+                  aria-required="true" aria-describedby="code-hint" />
+                <span id="code-hint" style={styles.hint}>8 uppercase letters and numbers</span>
               </div>
-
-              {error && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  style={styles.error}
-                  role="alert"
-                >
-                  {error}
-                </motion.p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{ ...styles.button, opacity: loading ? 0.5 : 1 }}
-              >
+              {error && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.error} role="alert">{error}</motion.p>}
+              <button type="submit" disabled={loading} className="btn-outline" style={{ marginTop: '8px' }}>
                 {loading ? <span className="loading-text">VERIFYING</span> : 'ENTER COMMITTEE →'}
               </button>
             </form>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <footer style={styles.footer}>
-        <span>markzo.sandnco.lol</span>
-        <br />
-        <span>©2025 sandnco. don&apos;t steal our shkt.</span>
-      </footer>
     </main>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  main: {
+  root: {
     minHeight: '100vh',
-    background: 'var(--black)',
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '2rem',
+    position: 'relative',
+    zIndex: 10,
   },
-  chooseContainer: {
+  expiredBanner: {
+    position: 'fixed',
+    top: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '12px',
+    color: '#888',
+    background: 'rgba(8,8,8,0.95)',
+    border: '1px solid #2a2a2a',
+    padding: '8px 16px',
+    whiteSpace: 'nowrap',
+    letterSpacing: '0.06em',
+    zIndex: 210,
+  },
+  chooseWrap: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: '0.5rem',
+    gap: '8px',
     width: '100%',
-    maxWidth: '420px',
+    maxWidth: '440px',
   },
-  wordmark: {
-    fontFamily: 'var(--font-wordmark)',
-    fontSize: '1.5rem',
-    color: 'var(--secondary)',
-    marginBottom: '1.5rem',
-    letterSpacing: '0.05em',
-  },
-  nav: {
+  chooseNav: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.25rem',
+    gap: '4px',
+    marginBottom: '24px',
   },
-  navItem: {
+  chooseBtn: {
     fontFamily: 'var(--font-heading)',
-    fontSize: '2.5rem',
-    color: 'var(--off-white)',
+    fontSize: 'clamp(32px, 5vw, 52px)',
+    color: '#f0ece4',
     background: 'none',
     border: 'none',
-    padding: '0.1rem 0',
+    padding: '2px 0',
     textAlign: 'left',
-    lineHeight: 1.2,
-    letterSpacing: '0.02em',
+    lineHeight: 1.15,
+    letterSpacing: '0.01em',
   },
-  formContainer: {
+  chooseSubtext: {
+    fontFamily: 'var(--font-body)',
+    fontSize: '13px',
+    color: '#444',
+  },
+  subtextLink: {
+    color: '#666',
+  },
+  formWrap: {
     width: '100%',
-    maxWidth: '420px',
+    maxWidth: '380px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0',
+    gap: 0,
   },
   back: {
     fontFamily: 'var(--font-body)',
-    fontSize: '0.75rem',
-    color: 'var(--secondary)',
+    fontSize: '13px',
+    color: '#444',
     background: 'none',
     border: 'none',
-    padding: '0',
-    marginBottom: '1.5rem',
+    padding: 0,
+    marginBottom: '28px',
     letterSpacing: '0.05em',
-    textAlign: 'left',
+    textAlign: 'left' as const,
+    cursor: 'pointer',
+    transition: 'color 0.15s',
   },
   heading: {
-    fontFamily: 'var(--font-heading)',
-    fontSize: '2rem',
-    color: 'var(--off-white)',
-    marginBottom: '0.25rem',
+    fontFamily: 'var(--font-wordmark)',
+    fontSize: 'clamp(36px, 5vw, 52px)',
+    color: '#f0ece4',
+    marginBottom: '8px',
+    lineHeight: 1,
   },
-  hint: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.8rem',
-    color: 'var(--secondary)',
-    marginBottom: '1.5rem',
-  },
-  hintText: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.7rem',
-    color: 'var(--muted)',
+  subheading: {
+    fontFamily: 'var(--font-caveat)',
+    fontSize: '16px',
+    color: '#555',
+    fontStyle: 'italic',
+    marginBottom: '28px',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem',
+    gap: '24px',
   },
   field: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.4rem',
+    gap: '8px',
   },
   label: {
     fontFamily: 'var(--font-body)',
-    fontSize: '0.75rem',
-    color: 'var(--secondary)',
-    letterSpacing: '0.1em',
+    fontSize: '11px',
+    color: '#555',
+    letterSpacing: '0.12em',
   },
-  input: {
-    background: 'transparent',
-    border: '1px solid var(--border-emphasis)',
-    borderRadius: '0',
-    padding: '0.6rem 0.75rem',
-    color: 'var(--off-white)',
-    fontSize: '0.95rem',
+  hint: {
     fontFamily: 'var(--font-body)',
-    width: '100%',
+    fontSize: '11px',
+    color: '#333',
   },
   error: {
     fontFamily: 'var(--font-body)',
-    fontSize: '0.8rem',
-    color: 'var(--off-white)',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid var(--border-emphasis)',
-    padding: '0.6rem 0.75rem',
-  },
-  button: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.9rem',
-    letterSpacing: '0.08em',
-    color: 'var(--off-white)',
-    background: 'transparent',
-    border: '1px solid var(--off-white)',
-    padding: '0.75rem 1.5rem',
-    cursor: 'pointer',
-    marginTop: '0.5rem',
-  },
-  signupLink: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.8rem',
-    color: 'var(--secondary)',
-    marginTop: '2rem',
-  },
-  link: {
-    color: 'var(--off-white)',
-    textDecoration: 'underline',
-    textUnderlineOffset: '3px',
-  },
-  expiredBanner: {
-    position: 'fixed',
-    top: '1rem',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.72rem',
-    color: 'var(--secondary)',
-    background: 'rgba(8,8,8,0.95)',
-    border: '1px solid var(--border-emphasis)',
-    padding: '0.6rem 1rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    whiteSpace: 'nowrap',
-    letterSpacing: '0.04em',
-    zIndex: 200,
-  },
-  expiredIcon: {
-    color: 'var(--secondary)',
-    fontSize: '0.8rem',
-  },
-  footer: {
-    position: 'fixed',
-    bottom: '1.5rem',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.65rem',
-    color: 'var(--muted)',
-    textAlign: 'center',
-    lineHeight: '1.6',
-    whiteSpace: 'nowrap',
+    fontSize: '13px',
+    color: '#888',
+    borderLeft: '2px solid #2a2a2a',
+    paddingLeft: '10px',
   },
 };

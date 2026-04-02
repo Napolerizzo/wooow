@@ -524,7 +524,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   root: {
     display: 'flex',
-    height: 'calc(100vh - 88px)',
+    height: 'calc(100vh - 56px)',
     overflow: 'hidden',
   },
   leftPanel: {

@@ -236,7 +236,7 @@ export default function ComputePage() {
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
-    minHeight: 'calc(100vh - 88px)',
+    minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'auto',

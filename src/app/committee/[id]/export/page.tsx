@@ -214,7 +214,7 @@ export default function ExportPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
-    minHeight: 'calc(100vh - 88px)',
+    minHeight: '100vh',
     padding: '2rem 1.5rem',
     overflowY: 'auto',
   },

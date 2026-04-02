@@ -335,7 +335,7 @@ function TwoDScoreboard({
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
-    height: 'calc(100vh - 88px)',
+    height: 'calc(100vh - 56px)',
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',

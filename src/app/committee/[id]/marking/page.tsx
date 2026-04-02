@@ -513,7 +513,7 @@ const styles: Record<string, React.CSSProperties> = {
   root: {
     display: 'flex',
     flexDirection: 'column',
-    height: 'calc(100vh - 88px)',
+    height: 'calc(100vh - 56px)',
     overflow: 'hidden',
   },
   loading: {
