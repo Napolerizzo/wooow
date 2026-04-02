@@ -14,15 +14,32 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────── */
 :root {
-  --black:           #080808;
-  --off-white:       #f0ece4;
-  --secondary:       #888888;
+  /* Color system */
+  --color-bg:             #080808;
+  --color-surface:        #0f0f0f;
+  --color-surface-2:      #141414;
+  --color-border:         #1e1e1e;
+  --color-border-2:       #2a2a2a;
+  --color-text-primary:   #f0ece4;
+  --color-text-secondary: #888888;
+  --color-text-muted:     #444444;
+  --color-text-ghost:     #252525;
+  --color-accent:         #c9b99a;
+  --color-danger:         #e05252;
+  --color-success:        #52c97c;
+  --color-warning:        #e0a952;
+
+  /* Legacy aliases (kept for backward compat) */
+  --black:           var(--color-bg);
+  --off-white:       var(--color-text-primary);
+  --secondary:       var(--color-text-secondary);
   --muted:           #555555;
-  --ghost:           #2a2a2a;
-  --border-subtle:   #1a1a1a;
+  --ghost:           var(--color-border-2);
+  --border-subtle:   var(--color-border);
   --border-emphasis: #333333;
   --grain-opacity:   0.52;
 
+  /* Fonts */
   --font-wordmark: 'Syne', sans-serif;
   --font-heading:  'Syne', sans-serif;
   --font-body:     'DM Mono', monospace;
@@ -194,8 +211,8 @@ select:hover {
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: var(--black); }
-::-webkit-scrollbar-thumb { background: #1e1e1e; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border); }
 
 /* ─── Selection ──────────────────────────────────────────────────────────── */
 ::selection {

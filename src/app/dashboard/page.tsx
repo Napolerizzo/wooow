@@ -200,7 +200,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     width: '200px',
-    background: '#0d0d0d',
+    background: 'var(--color-surface)',
     border: '1px solid #1e1e1e',
     padding: '16px',
     cursor: 'pointer',

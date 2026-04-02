@@ -616,7 +616,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '6px',
     height: '6px',
     borderRadius: '50%',
-    background: '#555',
+    background: 'var(--color-text-secondary)',
     display: 'inline-block',
   },
   mobileLabel: {
@@ -649,7 +649,7 @@ const styles: Record<string, React.CSSProperties> = {
     left: '50%',
     transform: 'translate(-50%, -50%)',
     zIndex: 301,
-    background: '#0d0d0d',
+    background: 'var(--color-surface)',
     border: '1px solid var(--border-emphasis)',
     padding: '2rem',
     width: '100%',

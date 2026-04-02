@@ -320,7 +320,7 @@ const styles: Record<string, React.CSSProperties> = {
   stickyCol: {
     position: 'sticky',
     left: 0,
-    background: '#0a0a0a',
+    background: 'var(--color-surface)',
     zIndex: 1,
     minWidth: '140px',
     maxWidth: '200px',
@@ -375,7 +375,7 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 1,
   },
   totalCell: {
-    background: '#0a0a0a',
+    background: 'var(--color-surface)',
     position: 'sticky',
     right: 0,
   },

@@ -429,7 +429,7 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     zIndex: 201,
-    background: '#0d0d0d',
+    background: 'var(--color-surface)',
     borderTop: '1px solid var(--border-emphasis)',
     maxHeight: '85vh',
     display: 'flex',

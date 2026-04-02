@@ -387,7 +387,7 @@ const styles: Record<string, React.CSSProperties> = {
     top: '52px',
     right: '1.5rem',
     width: '280px',
-    background: '#0d0d0d',
+    background: 'var(--color-surface)',
     border: '1px solid var(--border-emphasis)',
     padding: '1.5rem',
     zIndex: 50,

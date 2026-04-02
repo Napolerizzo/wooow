@@ -95,7 +95,7 @@ const styles: Record<string, React.CSSProperties> = {
   root: {
     borderBottom: '1px solid var(--border-subtle)',
     flexShrink: 0,
-    background: '#0a0a0a',
+    background: 'var(--color-surface)',
   },
   header: {
     display: 'flex',
