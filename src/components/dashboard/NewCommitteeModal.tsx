@@ -36,16 +36,13 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
   // Form state
   const [conferenceName, setConferenceName] = useState('');
   const [committeeName, setCommitteeName] = useState('');
-  const [ebMembers, setEbMembers] = useState<EbMemberInput[]>([
-    { role: 'Chair', name: '' },
-    { role: 'Vice Chair', name: '' },
-  ]);
-  const [awardTiers, setAwardTiers] = useState<AwardTierInput[]>([
-    { tier_name: 'Best Delegate', num_awards: 1 },
-    { tier_name: 'High Commendation', num_awards: 2 },
-    { tier_name: 'Verbal Mention', num_awards: 3 },
-  ]);
-  const [delegates, setDelegates] = useState<DelegateInput[]>([{ name: '', country: '', portfolio: '' }]);
+  const [ebMembers, setEbMembers] = useState<EbMemberInput[]>([]);
+  const [awardTiers, setAwardTiers] = useState<AwardTierInput[]>([]);
+  const [delegates, setDelegates] = useState<DelegateInput[]>([]);
+  // Section collapse state — all optional sections start collapsed
+  const [showEb, setShowEb]         = useState(false);
+  const [showAwards, setShowAwards] = useState(false);
+  const [showDelegates, setShowDelegates] = useState(false);
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
@@ -207,10 +204,13 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                   </Field>
                 </section>
 
-                {/* Section: EB Members */}
+                {/* Section: EB Members (optional) */}
                 <section style={styles.section}>
-                  <h3 style={styles.sectionLabel}>EB MEMBERS</h3>
-                  {ebMembers.map((m, i) => (
+                  <button type="button" style={styles.optionalToggle} onClick={() => { setShowEb((v) => !v); if (!showEb && ebMembers.length === 0) setEbMembers([{ role: 'Chair', name: '' }]); }}>
+                    <h3 style={styles.sectionLabel}>EB MEMBERS <span style={styles.optBadge}>OPTIONAL</span></h3>
+                    <span style={styles.optChevron}>{showEb ? '▲' : '▼'}</span>
+                  </button>
+                  {showEb && ebMembers.map((m, i) => (
                     <div key={i} style={styles.rowGroup}>
                       <input
                         type="text"
@@ -242,15 +242,16 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                       )}
                     </div>
                   ))}
-                  <button type="button" onClick={addEbMember} style={styles.addBtn}>
-                    + ADD MEMBER
-                  </button>
+                  {showEb && <button type="button" onClick={addEbMember} style={styles.addBtn}>+ ADD MEMBER</button>}
                 </section>
 
-                {/* Section: Award Tiers */}
+                {/* Section: Award Tiers (optional) */}
                 <section style={styles.section}>
-                  <h3 style={styles.sectionLabel}>AWARD TIERS</h3>
-                  {awardTiers.map((t, i) => (
+                  <button type="button" style={styles.optionalToggle} onClick={() => { setShowAwards((v) => !v); if (!showAwards && awardTiers.length === 0) setAwardTiers([{ tier_name: 'Best Delegate', num_awards: 1 }]); }}>
+                    <h3 style={styles.sectionLabel}>AWARD TIERS <span style={styles.optBadge}>OPTIONAL</span></h3>
+                    <span style={styles.optChevron}>{showAwards ? '▲' : '▼'}</span>
+                  </button>
+                  {showAwards && awardTiers.map((t, i) => (
                     <div key={i} style={styles.rowGroup}>
                       <input
                         type="text"
@@ -281,25 +282,24 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                       </button>
                     </div>
                   ))}
-                  <button type="button" onClick={addAwardTier} style={styles.addBtn}>
-                    + ADD TIER
-                  </button>
+                  {showAwards && <button type="button" onClick={addAwardTier} style={styles.addBtn}>+ ADD TIER</button>}
                 </section>
 
-                {/* Section: Delegates */}
+                {/* Section: Delegates (optional) */}
                 <section style={styles.section}>
                   <div style={styles.sectionLabelRow}>
-                    <h3 style={styles.sectionLabel}>DELEGATES</h3>
-                    <button
-                      type="button"
-                      onClick={() => setPasteMode((p) => !p)}
-                      style={styles.toggleBtn}
-                    >
-                      {pasteMode ? 'ONE BY ONE' : 'PASTE NAMES'}
+                    <button type="button" style={styles.optionalToggle} onClick={() => { setShowDelegates((v) => !v); if (!showDelegates && delegates.length === 0) setDelegates([{ name: '', country: '', portfolio: '' }]); }}>
+                      <h3 style={styles.sectionLabel}>DELEGATES <span style={styles.optBadge}>OPTIONAL</span></h3>
+                      <span style={styles.optChevron}>{showDelegates ? '▲' : '▼'}</span>
                     </button>
+                    {showDelegates && (
+                      <button type="button" onClick={() => setPasteMode((p) => !p)} style={styles.toggleBtn}>
+                        {pasteMode ? 'ONE BY ONE' : 'PASTE NAMES'}
+                      </button>
+                    )}
                   </div>
 
-                  {pasteMode ? (
+                  {showDelegates && pasteMode ? (
                     <div style={styles.field}>
                       <label style={styles.label}>COMMA-SEPARATED NAMES</label>
                       <textarea
@@ -313,7 +313,7 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                         PARSE NAMES
                       </button>
                     </div>
-                  ) : (
+                  ) : showDelegates ? (
                     <>
                       {delegates.map((d, i) => (
                         <div key={i} style={styles.rowGroup}>
@@ -351,7 +351,7 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                         + ADD DELEGATE
                       </button>
                     </>
-                  )}
+                  ) : null}
                 </section>
 
                 {error && (
@@ -631,6 +631,18 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0.5rem 1rem',
     cursor: 'pointer',
     letterSpacing: '0.08em',
+  },
+  optionalToggle: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+    borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.35rem', marginBottom: '0.25rem',
+  },
+  optBadge: {
+    fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: '#444',
+    letterSpacing: '0.08em', marginLeft: '0.5rem',
+  },
+  optChevron: {
+    fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: '#444',
   },
   doneBtn: {
     fontFamily: 'var(--font-body)',

@@ -5,6 +5,7 @@ import GrainOverlay from '@/components/GrainOverlay';
 import Vignette from '@/components/Vignette';
 import HUD from '@/components/HUD';
 import PageTransition from '@/components/PageTransition';
+import { SaveStatusProvider } from '@/lib/save-status';
 
 // SSR-disabled: uses canvas + requestAnimationFrame
 const GenerativeBackground = dynamic(
@@ -22,16 +23,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {/* z-index 1 — generative art canvas */}
-        <GenerativeBackground />
-        {/* z-index 50 — vignette dark frame */}
-        <Vignette />
-        {/* z-index 200 — persistent HUD chrome */}
-        <HUD />
-        {/* z-index 9999 — grain film overlay */}
-        <GrainOverlay />
-        {/* z-index 10 — page content with enter/exit transitions */}
-        <PageTransition>{children}</PageTransition>
+        <SaveStatusProvider>
+          {/* z-index 1 — generative art canvas */}
+          <GenerativeBackground />
+          {/* z-index 50 — vignette dark frame */}
+          <Vignette />
+          {/* z-index 200 — persistent HUD chrome */}
+          <HUD />
+          {/* z-index 9999 — grain film overlay */}
+          <GrainOverlay />
+          {/* z-index 10 — page content with enter/exit transitions */}
+          <PageTransition>{children}</PageTransition>
+        </SaveStatusProvider>
       </body>
     </html>
   );

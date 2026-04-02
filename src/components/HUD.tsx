@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useSaveStatus } from '@/lib/save-status';
 
 const CYCLE_FONTS = [
   '"DM Mono", monospace',
@@ -28,6 +29,7 @@ const COMMITTEE_NAV = [
 export default function HUD() {
   const pathname = usePathname();
   const router = useRouter();
+  const { status: saveStatus } = useSaveStatus();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [fontIdx, setFontIdx] = useState(CYCLE_FONTS.length - 1);
@@ -100,6 +102,24 @@ export default function HUD() {
       >
         MARKZO
       </Link>
+
+      {/* SAVE INDICATOR DOT — only on committee pages */}
+      {committeeId && (
+        <div
+          aria-label={`Save status: ${saveStatus}`}
+          title={saveStatus === 'pending' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Save failed' : ''}
+          style={{
+            ...styles.saveDot,
+            background: saveStatus === 'pending' ? '#e0a952'
+              : saveStatus === 'saved'   ? '#52c97c'
+              : saveStatus === 'error'   ? '#e05252'
+              : '#252525',
+            boxShadow: saveStatus === 'idle' ? 'none'
+              : `0 0 6px ${saveStatus === 'pending' ? '#e0a952' : saveStatus === 'saved' ? '#52c97c' : '#e05252'}66`,
+            transition: 'background 0.3s, box-shadow 0.3s',
+          }}
+        />
+      )}
 
       {/* TOP-CENTER — Animated cross */}
       <div style={styles.crossWrap} aria-hidden="true">
@@ -190,6 +210,15 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '0.04em',
     pointerEvents: 'auto',
     lineHeight: 1,
+  },
+  saveDot: {
+    position: 'absolute',
+    top: '22px',
+    left: '82px',
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    pointerEvents: 'none',
   },
   crossWrap: {
     position: 'absolute',
