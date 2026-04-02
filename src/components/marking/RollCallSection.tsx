@@ -174,12 +174,14 @@ export default function RollCallSection({
                   <div style={styles.quorumEditor}>
                     <label style={styles.quorumLabel}>QUORUM FRACTION</label>
                     <input
-                      type="number" min={0.01} max={1} step={0.01}
+                      type="text" inputMode="numeric"
                       value={quorumFraction}
                       onChange={(e) => {
+                        if (!/^[\d.]*$/.test(e.target.value)) return;
                         const v = parseFloat(e.target.value);
                         if (!isNaN(v) && v > 0 && v <= 1) onQuorumFractionChange(v);
                       }}
+                      onFocus={(e) => e.currentTarget.select()}
                       style={styles.quorumInput}
                       aria-label="Quorum fraction"
                     />

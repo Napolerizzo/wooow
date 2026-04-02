@@ -523,9 +523,10 @@ function PostLockModal({ currentScore, note, onNoteChange, onConfirm, onCancel }
         <p style={styles.modalWarning}>This committee is locked. Editing will create an audit entry.</p>
         <div style={styles.modalField}>
           <label style={styles.modalLabel}>NEW SCORE</label>
-          <input type="number" value={newScore}
-            onChange={(e) => setNewScore(parseFloat(e.target.value) || 0)}
-            min={0} step={0.5} style={styles.modalInput} autoFocus aria-label="New score" />
+          <input type="text" inputMode="numeric" value={newScore}
+            onChange={(e) => { if (/^[\d.]*$/.test(e.target.value)) setNewScore(parseFloat(e.target.value) || 0); }}
+            onFocus={(e) => e.currentTarget.select()}
+            style={styles.modalInput} autoFocus aria-label="New score" />
         </div>
         <div style={styles.modalField}>
           <label style={styles.modalLabel}>REASON (OPTIONAL)</label>

@@ -346,15 +346,14 @@ function ScoreInput({
     <div style={scoreStyles.wrap}>
       <label style={scoreStyles.label}>{label}</label>
       <input
-        type="number"
+        type="text"
+        inputMode="numeric"
         value={localValue}
-        onChange={(e) => setLocalValue(e.target.value)}
+        onChange={(e) => { if (/^[\d.]*$/.test(e.target.value)) setLocalValue(e.target.value); }}
+        onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         disabled={disabled}
-        min={0}
-        max={max}
-        step={0.5}
         style={{ ...scoreStyles.input, opacity: disabled ? 0.4 : 1 }}
         aria-label={label}
       />

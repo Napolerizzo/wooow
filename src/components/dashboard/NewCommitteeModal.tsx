@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import NumericInput from '@/components/NumericInput';
 
 interface EbMemberInput {
   role: string;
@@ -262,13 +263,13 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
                         style={{ ...styles.input, flex: '2' }}
                         aria-label={`Award tier ${i + 1} name`}
                       />
-                      <input
-                        type="number"
+                      <NumericInput
                         value={t.num_awards}
-                        onChange={(e) => updateAwardTier(i, 'num_awards', Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(v) => updateAwardTier(i, 'num_awards', Math.max(1, v ?? 1))}
                         min={1}
                         max={50}
-                        style={{ ...styles.input, flex: '0.6', textAlign: 'center' }}
+                        step={1}
+                        style={{ ...styles.input, flex: '0.6', textAlign: 'center' } as React.CSSProperties}
                         aria-label={`Award tier ${i + 1} count`}
                       />
                       <span style={styles.fieldHint}>awards</span>

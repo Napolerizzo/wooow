@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import NumericInput from '@/components/NumericInput';
 import type { Database } from '@/types/database';
 
 type FieldType = Database['public']['Tables']['marking_schema']['Row']['field_type'];
@@ -59,10 +60,21 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [accessCode, setAccessCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // Load existing schema
   const loadSchema = useCallback(async () => {
     const supabase = createClient();
+
+    // Fetch access code
+    const { data: cData } = await supabase
+      .from('committees')
+      .select('access_code')
+      .eq('id', committeeId)
+      .single();
+    if (cData) setAccessCode(cData.access_code);
+
     const { data } = await supabase
       .from('marking_schema')
       .select('*')
@@ -215,6 +227,25 @@ export default function SetupPage() {
           <p style={styles.subheading}>Define how delegates are scored</p>
         </div>
 
+        {/* Access code */}
+        {accessCode && (
+          <div style={styles.accessCodeBlock}>
+            <span style={styles.accessCodeLabel}>ACCESS CODE</span>
+            <span style={styles.accessCodeValue}>{accessCode}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(accessCode);
+                setCodeCopied(true);
+                setTimeout(() => setCodeCopied(false), 1800);
+              }}
+              style={styles.copyBtn}
+              aria-label="Copy access code"
+            >
+              {codeCopied ? 'COPIED ✓' : 'COPY'}
+            </button>
+          </div>
+        )}
+
         <Reorder.Group
           axis="y"
           values={fields}
@@ -345,10 +376,9 @@ export default function SetupPage() {
 
               {/* Max score */}
               <ConfigField label="MAX SCORE">
-                <input
-                  type="number"
+                <NumericInput
                   value={selectedField.max_score}
-                  onChange={(e) => updateField(selectedIdx, { max_score: Math.max(0, parseFloat(e.target.value) || 0) })}
+                  onChange={(v) => updateField(selectedIdx, { max_score: v ?? 0 })}
                   min={0}
                   step={0.5}
                   style={{ ...styles.configInput, width: '120px' }}
@@ -393,14 +423,13 @@ export default function SetupPage() {
               {selectedField.field_type !== 'roll_call' && (
                 <>
                   <ConfigField label="TOTAL ITEMS ALLOWED">
-                    <input
-                      type="number"
-                      value={selectedField.max_items_total ?? ''}
-                      onChange={(e) => updateField(selectedIdx, {
-                        max_items_total: e.target.value ? Math.max(1, parseInt(e.target.value)) : null,
-                      })}
+                    <NumericInput
+                      value={selectedField.max_items_total ?? null}
+                      onChange={(v) => updateField(selectedIdx, { max_items_total: v !== null ? Math.max(1, v) : null })}
                       min={1}
+                      step={1}
                       placeholder="unlimited"
+                      defaultEmpty
                       style={{ ...styles.configInput, width: '120px' }}
                       aria-label="Maximum total items"
                     />
@@ -408,14 +437,13 @@ export default function SetupPage() {
 
                   {selectedField.field_type === 'speech' && (
                     <ConfigField label="SPEECHES THAT COUNT TOWARD FINAL">
-                      <input
-                        type="number"
-                        value={selectedField.max_items_count ?? ''}
-                        onChange={(e) => updateField(selectedIdx, {
-                          max_items_count: e.target.value ? Math.max(1, parseInt(e.target.value)) : null,
-                        })}
+                      <NumericInput
+                        value={selectedField.max_items_count ?? null}
+                        onChange={(v) => updateField(selectedIdx, { max_items_count: v !== null ? Math.max(1, v) : null })}
                         min={1}
+                        step={1}
                         placeholder="all"
+                        defaultEmpty
                         style={{ ...styles.configInput, width: '120px' }}
                         aria-label="Number of speeches counting toward final score"
                       />
@@ -447,13 +475,12 @@ export default function SetupPage() {
                           style={{ ...styles.configInput, flex: 2 }}
                           aria-label={`Sub-criterion ${si + 1} name`}
                         />
-                        <input
-                          type="number"
+                        <NumericInput
                           value={sub.max}
-                          onChange={(e) => updateSubCriterion(selectedIdx, si, { max: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          onChange={(v) => updateSubCriterion(selectedIdx, si, { max: v ?? 0 })}
                           min={0}
                           step={0.5}
-                          style={{ ...styles.configInput, flex: 0.6, textAlign: 'center' }}
+                          style={{ ...styles.configInput, flex: 0.6, textAlign: 'center' } as React.CSSProperties}
                           aria-label={`Sub-criterion ${si + 1} max score`}
                         />
                         <button
@@ -510,6 +537,39 @@ function ConfigField({ label, children }: { label: string; children: React.React
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  accessCodeBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '10px 16px',
+    background: 'var(--color-surface)',
+    borderBottom: '1px solid var(--color-border)',
+    flexWrap: 'wrap',
+  },
+  accessCodeLabel: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '10px',
+    color: 'var(--color-text-muted)',
+    letterSpacing: '0.1em',
+  },
+  accessCodeValue: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '18px',
+    fontWeight: 700,
+    color: 'var(--color-text-primary)',
+    letterSpacing: '0.2em',
+    flex: 1,
+  },
+  copyBtn: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '10px',
+    letterSpacing: '0.1em',
+    color: 'var(--color-text-secondary)',
+    background: 'none',
+    border: '1px solid var(--color-border)',
+    padding: '4px 10px',
+    cursor: 'pointer',
+  },
   loadingWrap: {
     display: 'flex',
     alignItems: 'center',

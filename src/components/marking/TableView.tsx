@@ -371,9 +371,9 @@ function CellInput({ defaultValue, disabled, qMode, isFocused, onSave, onFocus, 
   return (
     <input
       ref={inputRef}
-      type="number" value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onFocus={onFocus}
+      type="text" inputMode="numeric" value={value}
+      onChange={(e) => { if (/^[\d.]*$/.test(e.target.value)) setValue(e.target.value); }}
+      onFocus={(e) => { e.currentTarget.select(); onFocus(); }}
       onBlur={() => { onBlur(); onSave(value); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || (qMode && e.key === 'Tab')) e.currentTarget.blur();
