@@ -109,21 +109,7 @@ export async function POST(req: NextRequest) {
     conferenceId = newConf.id;
   }
 
-  // 2. Generate access code
-  const codeRes = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/generate-access-code`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ committee_id: 'temp' }),
-    }
-  );
-
-  if (!codeRes.ok) {
-    return NextResponse.json({ error: 'Failed to generate access code' }, { status: 500 });
-  }
-
-  // Generate locally to avoid HTTP round-trip complexity in server context
+  // 2. Generate access code locally (HMAC-SHA256 + bcrypt)
   const { createHmac, randomBytes } = await import('crypto');
   const secret = process.env.ACCESS_CODE_SECRET!;
   const salt = randomBytes(16).toString('hex');
