@@ -118,10 +118,10 @@ export default function DashboardPage() {
             transition={{ delay: 0.3 }}
             style={styles.emptyState}
           >
-            <p style={styles.emptyText}>NO COMMITTEES YET.</p>
-            <p style={styles.emptySubText}>START ONE.</p>
+            <p style={styles.emptyText}>NOTHING HERE.</p>
+            <p style={styles.emptySubText}>your delegates are waiting.</p>
             <button onClick={() => setShowModal(true)} style={styles.emptyButton}>
-              + NEW COMMITTEE
+              + CREATE YOUR FIRST COMMITTEE
             </button>
           </motion.div>
         ) : (

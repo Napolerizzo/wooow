@@ -1,16 +1,38 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'choose' | 'signin' | 'guest';
 
+/** Reads search params inside a Suspense boundary (Next.js App Router requirement). */
+function SessionExpiredDetector({
+  onExpired,
+  onGuestMode,
+}: {
+  onExpired: () => void;
+  onGuestMode: () => void;
+}) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get('expired') === '1') {
+      onExpired();
+      if (searchParams.get('redirect')?.startsWith('/committee/')) {
+        onGuestMode();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('choose');
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accessCode, setAccessCode] = useState('');
@@ -72,6 +94,30 @@ export default function LoginPage() {
 
   return (
     <main style={styles.main}>
+      {/* Reads ?expired=1 from URL inside a Suspense boundary */}
+      <Suspense fallback={null}>
+        <SessionExpiredDetector
+          onExpired={() => setSessionExpired(true)}
+          onGuestMode={() => setMode('guest')}
+        />
+      </Suspense>
+
+      {/* Session expired banner */}
+      <AnimatePresence>
+        {sessionExpired && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            style={styles.expiredBanner}
+            role="alert"
+          >
+            <span style={styles.expiredIcon}>⚠</span>
+            <span>SESSION EXPIRED — please enter the access code again to rejoin</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {mode === 'choose' && (
           <motion.div
@@ -406,6 +452,28 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--off-white)',
     textDecoration: 'underline',
     textUnderlineOffset: '3px',
+  },
+  expiredBanner: {
+    position: 'fixed',
+    top: '1rem',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.72rem',
+    color: 'var(--secondary)',
+    background: 'rgba(8,8,8,0.95)',
+    border: '1px solid var(--border-emphasis)',
+    padding: '0.6rem 1rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    whiteSpace: 'nowrap',
+    letterSpacing: '0.04em',
+    zIndex: 200,
+  },
+  expiredIcon: {
+    color: 'var(--secondary)',
+    fontSize: '0.8rem',
   },
   footer: {
     position: 'fixed',

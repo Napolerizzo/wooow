@@ -3,8 +3,27 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PROTECTED_DASHBOARD_ROUTES = ['/dashboard'];
-const PROTECTED_COMMITTEE_ROUTES = ['/committee'];
 const AUTH_ROUTES = ['/login', '/signup'];
+const GUEST_COOKIE_NAME = 'markzo_guest';
+
+/**
+ * Decode the guest cookie payload WITHOUT verifying the HMAC signature.
+ * This is intentional — we only need the expiry timestamp for the redirect UX.
+ * The actual HMAC verification always happens server-side in API routes.
+ */
+function peekGuestExpiry(cookieValue: string): number | null {
+  try {
+    const [b64] = cookieValue.split('.');
+    if (!b64) return null;
+    // base64url → standard base64
+    const standard = b64.replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(standard, 'base64').toString('utf8');
+    const parsed = JSON.parse(json) as { expires_at?: number };
+    return typeof parsed.expires_at === 'number' ? parsed.expires_at : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
@@ -61,8 +80,7 @@ export async function middleware(req: NextRequest) {
   const isDashboard = PROTECTED_DASHBOARD_ROUTES.some((r) =>
     pathname.startsWith(r)
   );
-  // Committee routes allow guest access — validated per-route
-  void PROTECTED_COMMITTEE_ROUTES;
+  const isCommitteeRoute = pathname.startsWith('/committee/');
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
   // Redirect unauthenticated users from dashboard
@@ -73,8 +91,22 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Committee routes: allow guests through — guest cookie validated per-route
-  // Authenticated users pass through normally
+  // Committee routes: check guest session expiry for non-authenticated visitors
+  if (isCommitteeRoute && !session) {
+    const guestCookie = req.cookies.get(GUEST_COOKIE_NAME)?.value;
+    if (guestCookie) {
+      const expiresAt = peekGuestExpiry(guestCookie);
+      if (expiresAt === null || Date.now() > expiresAt) {
+        // Expired — redirect to login with expired flag
+        const url = req.nextUrl.clone();
+        url.pathname = '/login';
+        url.searchParams.set('expired', '1');
+        url.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(url);
+      }
+    }
+    // No guest cookie: let API routes handle the 401 per-endpoint
+  }
 
   // Redirect already-authenticated users from auth pages
   if (isAuthRoute && session) {

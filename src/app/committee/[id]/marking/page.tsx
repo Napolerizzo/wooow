@@ -8,6 +8,7 @@ import type { Database } from '@/types/database';
 import TableView from '@/components/marking/TableView';
 import DelegateView from '@/components/marking/DelegateView';
 import RollCallSection from '@/components/marking/RollCallSection';
+import ErrorOverlay from '@/components/ErrorOverlay';
 
 type Delegate = Database['public']['Tables']['delegates']['Row'];
 type SchemaField = Database['public']['Tables']['marking_schema']['Row'];
@@ -25,15 +26,31 @@ export default function MarkingPage() {
   const params = useParams();
   const committeeId = params?.id as string;
 
+  // On mobile, force delegate view
+  const [isMobile, setIsMobile] = useState(false);
   const [mode, setMode] = useState<ViewMode>('table');
   const [delegates, setDelegates] = useState<Delegate[]>([]);
   const [schema, setSchema] = useState<SchemaField[]>([]);
   const [marks, setMarks] = useState<Mark[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fatalError, setFatalError] = useState('');
   const [selectedDelegateIdx, setSelectedDelegateIdx] = useState(0);
   const [onlineUsers] = useState<OnlineUser[]>([]);
   const [realtimeConnected, setRealtimeConnected] = useState(true);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    function checkMobile() {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setMode('delegate');
+    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Post-lock modal state
   const [postLockModal, setPostLockModal] = useState<{
@@ -73,6 +90,17 @@ export default function MarkingPage() {
 
     setLoading(false);
   }, [committeeId]);
+
+  // Fatal load error clears loading even on network fail
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setFatalError('Could not load marking data. Check your connection.');
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   // Realtime subscription
   useEffect(() => {
@@ -130,10 +158,25 @@ export default function MarkingPage() {
         }
       )
       .subscribe((status) => {
-        setRealtimeConnected(status === 'SUBSCRIBED');
+        const connected = status === 'SUBSCRIBED';
+        setRealtimeConnected(connected);
+
+        if (!connected && status === 'CHANNEL_ERROR') {
+          // Exponential backoff reconnect
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          reconnectAttemptsRef.current += 1;
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = setTimeout(() => {
+            supabase.removeChannel(marksChannel);
+            loadAll(); // Full reload on reconnect
+          }, delay);
+        } else if (connected) {
+          reconnectAttemptsRef.current = 0;
+        }
       });
 
     return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       supabase.removeChannel(marksChannel);
     };
   }, [committeeId, loadAll]);
@@ -233,16 +276,20 @@ export default function MarkingPage() {
     );
   }
 
+  if (fatalError) {
+    return <ErrorOverlay message="SOMETHING BROKE." sub={fatalError} onDismiss={() => { setFatalError(''); loadAll(); }} />;
+  }
+
   if (schema.length === 0) {
     return (
       <div style={styles.noSchema}>
-        <p style={styles.noSchemaText}>NO MARKING SCHEMA YET.</p>
+        <p style={styles.noSchemaText}>NOTHING TO MARK YET.</p>
         <p style={styles.noSchemaHint}>
-          Set up your marking fields in the{' '}
+          The chair hasn&apos;t set up a marking schema.{' '}
           <a href={`/committee/${committeeId}/setup`} style={styles.schemaLink}>
-            SETUP
+            Go to SETUP
           </a>{' '}
-          tab first.
+          to add fields.
         </p>
       </div>
     );
@@ -252,30 +299,34 @@ export default function MarkingPage() {
     <div style={styles.root}>
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div style={styles.toolbar}>
-        <div style={styles.modeToggle} role="tablist" aria-label="Marking view mode">
-          <button
-            onClick={() => setMode('table')}
-            style={{
-              ...styles.modeBtn,
-              ...(mode === 'table' ? styles.modeBtnActive : {}),
-            }}
-            role="tab"
-            aria-selected={mode === 'table'}
-          >
-            TABLE VIEW
-          </button>
-          <button
-            onClick={() => setMode('delegate')}
-            style={{
-              ...styles.modeBtn,
-              ...(mode === 'delegate' ? styles.modeBtnActive : {}),
-            }}
-            role="tab"
-            aria-selected={mode === 'delegate'}
-          >
-            DELEGATE VIEW
-          </button>
-        </div>
+        {!isMobile ? (
+          <div style={styles.modeToggle} role="tablist" aria-label="Marking view mode">
+            <button
+              onClick={() => setMode('table')}
+              style={{
+                ...styles.modeBtn,
+                ...(mode === 'table' ? styles.modeBtnActive : {}),
+              }}
+              role="tab"
+              aria-selected={mode === 'table'}
+            >
+              TABLE VIEW
+            </button>
+            <button
+              onClick={() => setMode('delegate')}
+              style={{
+                ...styles.modeBtn,
+                ...(mode === 'delegate' ? styles.modeBtnActive : {}),
+              }}
+              role="tab"
+              aria-selected={mode === 'delegate'}
+            >
+              DELEGATE VIEW
+            </button>
+          </div>
+        ) : (
+          <span style={styles.mobileLabel}>DELEGATE VIEW</span>
+        )}
 
         <div style={styles.toolbarRight}>
           {/* Online collaborators */}
@@ -567,6 +618,12 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     background: '#555',
     display: 'inline-block',
+  },
+  mobileLabel: {
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.72rem',
+    color: 'var(--secondary)',
+    letterSpacing: '0.1em',
   },
   lockedIndicator: {
     fontFamily: 'var(--font-body)',

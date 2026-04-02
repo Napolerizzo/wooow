@@ -127,6 +127,17 @@ select:hover {
   animation: ellipsis 1.2s steps(1) infinite;
 }
 
+/* ─── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Prevent horizontal overflow on all pages */
+  body { overflow-x: hidden; }
+
+  /* Reduce font sizes for small screens */
+  :root {
+    --font-size-xl: clamp(1.4rem, 6vw, 2.2rem);
+  }
+}
+
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
