@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveAuthUser } from '@/lib/api-auth';
 import { z } from 'zod';
 import type { Database } from '@/types/database';
 
@@ -43,20 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  // Verify auth server-side
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return req.cookies.get(name)?.value; },
-        set() {},
-        remove() {},
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await resolveAuthUser(req);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -64,13 +51,12 @@ export async function POST(req: NextRequest) {
   const admin = getAdminClient();
 
   // Ensure the profile row exists before inserting a conference.
-  // conferences.created_by is a FK → profiles.id. If the handle_new_user
-  // trigger wasn't applied in Supabase, the profile row may be missing.
+  // conferences.created_by is a FK → profiles.id.
   await admin.from('profiles').upsert(
     {
       id: user.id,
-      email: user.email ?? '',
-      display_name: user.user_metadata?.display_name ?? user.email ?? 'Unknown',
+      email: user.email,
+      display_name: (user.user_metadata.display_name as string | undefined) ?? user.email ?? 'Unknown',
     },
     { onConflict: 'id', ignoreDuplicates: true }
   );
@@ -254,26 +240,14 @@ export async function POST(req: NextRequest) {
 
 // GET: list committees for the authenticated user
 export async function GET(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return req.cookies.get(name)?.value; },
-        set() {},
-        remove() {},
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await resolveAuthUser(req);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get all committees where user is an eb_member
-  const { data, error } = await supabase
+  // Use admin client so RLS doesn't block the nested join
+  const admin = getAdminClient();
+  const { data, error } = await admin
     .from('eb_members')
     .select(`
       committee_id,
@@ -297,6 +271,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch committees' }, { status: 500 });
   }
 
-  void res;
   return NextResponse.json({ committees: data ?? [] });
 }

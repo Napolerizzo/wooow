@@ -44,20 +44,22 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push('/login'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.push('/login'); return; }
 
     // Load profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('display_name')
-      .eq('id', user.id)
+      .eq('id', session.user.id)
       .single();
 
     if (profile) setDisplayName(profile.display_name);
 
-    // Load committees via API (server validates auth)
-    const res = await fetch('/api/committee');
+    // Pass Bearer token so server-side auth works regardless of cookie config
+    const res = await fetch('/api/committee', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
     if (res.ok) {
       const data = await res.json();
       setCommittees(data.committees ?? []);

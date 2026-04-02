@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { createClient } from '@/lib/supabase/client';
 
 interface EbMemberInput {
   role: string;
@@ -102,9 +103,17 @@ export default function NewCommitteeModal({ onClose, onCreated }: Props) {
       : delegates.filter((d) => d.name.trim());
 
     try {
+      // Send access token in Authorization header — most reliable across
+      // environments where cookie forwarding to API routes may vary
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
       const res = await fetch('/api/committee', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           conference_name: conferenceName.trim(),
           committee_name: committeeName.trim(),
