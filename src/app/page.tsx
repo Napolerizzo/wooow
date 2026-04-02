@@ -1,25 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import ZoomTransition, { type ZoomTransitionHandle } from '@/components/home/ZoomTransition';
+import PendulumCTA from '@/components/home/PendulumCTA';
+
+// Heavy effects — load only on desktop, skip SSR
+const PhysicsHero  = dynamic(() => import('@/components/home/PhysicsHero'),  { ssr: false });
+const BlackHoleCursor = dynamic(() => import('@/components/home/BlackHoleCursor'), { ssr: false });
+const GlitchSystem = dynamic(() => import('@/components/home/GlitchSystem'), { ssr: false });
+const IdleScramble = dynamic(() => import('@/components/home/IdleScramble'), { ssr: false });
+const DatamoshScroll = dynamic(() => import('@/components/home/DatamoshScroll'), { ssr: false });
 
 /*
-  6-step entry sequence:
-  Phase 0  (0ms)    — pure black, grain + vignette only
-  Phase 1  (250ms)  — corner registration marks draw in
-  Phase 2  (700ms)  — horizontal rule slides in
-  Phase 3  (1300ms) — cross reticle draws
-  Phase 4  (2000ms) — MARKZO stamps (scale 1.3→1)
-  Phase 5  (2800ms) — tagline reveals
-  Phase 6  (3300ms) — CTAs stagger up
+  Entry phases:
+  0 black → 1 corners → 2 rule → 3 cross → 4 wordmark → 5 tagline → 6 CTAs
 */
 
 export default function LandingPage() {
   const [phase, setPhase] = useState(0);
-  const [ctaHover, setCtaHover] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const zoomRef = useRef<ZoomTransitionHandle>(null);
 
   useEffect(() => {
+    setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
     const timers = [
       setTimeout(() => setPhase(1), 250),
       setTimeout(() => setPhase(2), 700),
@@ -31,15 +36,39 @@ export default function LandingPage() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
+  function handleCtaClick(e: React.MouseEvent, href: string) {
+    if (isMobile) return; // let default navigation proceed
+    e.preventDefault();
+    zoomRef.current?.trigger(e.clientX, e.clientY, href);
+  }
+
   return (
     <main style={styles.root}>
 
-      {/* ── Corner registration marks ───────────────────────────────── */}
+      {/* ── Physics letters (desktop only, behind everything) ──────────── */}
+      {!isMobile && <PhysicsHero />}
+
+      {/* ── Three.js cursor vortex (desktop only) ──────────────────────── */}
+      {!isMobile && <BlackHoleCursor />}
+
+      {/* ── Datamosh scroll overlay (desktop only) ─────────────────────── */}
+      {!isMobile && <DatamoshScroll />}
+
+      {/* ── Glitch system (desktop only) ───────────────────────────────── */}
+      {!isMobile && <GlitchSystem />}
+
+      {/* ── Idle scramble (desktop only) ───────────────────────────────── */}
+      {!isMobile && <IdleScramble />}
+
+      {/* ── Zoom transition overlay ─────────────────────────────────────── */}
+      <ZoomTransition ref={zoomRef} />
+
+      {/* ── Corner registration marks ───────────────────────────────────── */}
       {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
         <CornerMark key={corner} corner={corner} visible={phase >= 1} />
       ))}
 
-      {/* ── Horizontal rule ─────────────────────────────────────────── */}
+      {/* ── Horizontal rule ─────────────────────────────────────────────── */}
       <motion.div
         aria-hidden="true"
         style={styles.rule}
@@ -48,7 +77,7 @@ export default function LandingPage() {
         transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
       />
 
-      {/* ── Center stack ────────────────────────────────────────────── */}
+      {/* ── Center stack ────────────────────────────────────────────────── */}
       <div style={styles.centerStack}>
 
         {/* Cross reticle */}
@@ -70,7 +99,6 @@ export default function LandingPage() {
               animate={{ strokeDashoffset: phase >= 3 ? 0 : 48 }}
               transition={{ duration: 0.7, ease: 'easeInOut', delay: 0.12 }}
             />
-            {/* Center dot */}
             <motion.circle
               cx="28" cy="28" r="1.5"
               fill="#f0ece4" fillOpacity="0.5"
@@ -81,10 +109,15 @@ export default function LandingPage() {
           </svg>
         </div>
 
-        {/* MARKZO wordmark */}
+        {/* MARKZO wordmark — static on mobile, physics on desktop (physics letters behind) */}
         <motion.h1
-          style={styles.wordmark}
-          className="chroma-text"
+          style={{
+            ...styles.wordmark,
+            // On desktop, hide the static wordmark once physics hero is active
+            // Keep it visible during initial entry sequence
+            opacity: 1,
+          }}
+          className="aberration-always"
           initial={{ scale: 1.3, opacity: 0 }}
           animate={phase >= 4 ? { scale: 1, opacity: 1 } : { scale: 1.3, opacity: 0 }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
@@ -103,36 +136,51 @@ export default function LandingPage() {
         </motion.p>
 
         {/* CTAs */}
-        <div style={styles.actions}>
-          {[
-            { label: 'START A CONFERENCE', href: '/signup', delay: 0 },
-            { label: 'ENTER COMMITTEE',    href: '/login',  delay: 0.1 },
-          ].map(({ label, href, delay }) => (
-            <motion.div
-              key={href}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: phase >= 6 ? 1 : 0, y: phase >= 6 ? 0 : 8 }}
-              transition={{ duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Link
-                href={href}
-                style={{
-                  ...styles.cta,
-                  color: ctaHover === href ? '#f0ece4' : '#555',
-                  letterSpacing: ctaHover === href ? '0.12em' : '0.06em',
-                }}
-                onMouseEnter={() => setCtaHover(href)}
-                onMouseLeave={() => setCtaHover(null)}
-                className="link-underline"
+        <motion.div
+          style={styles.actions}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: phase >= 6 ? 1 : 0, y: phase >= 6 ? 0 : 8 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {isMobile ? (
+            // Mobile: big touch-friendly buttons
+            <>
+              <a
+                href="/signup"
+                style={styles.mobileCta}
               >
-                {label} <span style={styles.ctaArrow}>→</span>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+                START A CONFERENCE →
+              </a>
+              <a
+                href="/login"
+                style={{ ...styles.mobileCta, ...styles.mobileCtaSecondary }}
+              >
+                ENTER COMMITTEE
+              </a>
+            </>
+          ) : (
+            // Desktop: pendulum CTAs
+            <>
+              <PendulumCTA
+                href="/signup"
+                label="START A CONFERENCE"
+              />
+              <div style={{ marginTop: '8px' }}>
+                <a
+                  href="/login"
+                  onClick={(e) => handleCtaClick(e, '/login')}
+                  className="link-underline cta-text"
+                  style={styles.secondaryCta}
+                >
+                  ENTER COMMITTEE →
+                </a>
+              </div>
+            </>
+          )}
+        </motion.div>
       </div>
 
-      {/* ── Version tag ────────────────────────────────────────────── */}
+      {/* ── Version tag ─────────────────────────────────────────────────── */}
       <motion.span
         style={styles.version}
         initial={{ opacity: 0 }}
@@ -146,7 +194,7 @@ export default function LandingPage() {
   );
 }
 
-/* ── Corner registration mark component ─────────────────────────────────── */
+/* ── Corner registration mark component ──────────────────────────────────── */
 function CornerMark({ corner, visible }: { corner: 'tl' | 'tr' | 'bl' | 'br'; visible: boolean }) {
   const isRight  = corner === 'tr' || corner === 'br';
   const isBottom = corner === 'bl' || corner === 'br';
@@ -168,7 +216,6 @@ function CornerMark({ corner, visible }: { corner: 'tl' | 'tr' | 'bl' | 'br'; vi
       animate={{ opacity: visible ? 1 : 0 }}
       transition={{ duration: 0.4 }}
     >
-      {/* horizontal arm */}
       <motion.line
         x1={isRight ? size : 0} y1={isBottom ? size : 0}
         x2={isRight ? size - size : size} y2={isBottom ? size : 0}
@@ -178,7 +225,6 @@ function CornerMark({ corner, visible }: { corner: 'tl' | 'tr' | 'bl' | 'br'; vi
         animate={{ strokeDashoffset: visible ? 0 : size }}
         transition={{ duration: 0.4, delay: 0.05 }}
       />
-      {/* vertical arm */}
       <motion.line
         x1={isRight ? size : 0} y1={isBottom ? size : 0}
         x2={isRight ? size : 0} y2={isBottom ? size - size : size}
@@ -221,7 +267,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '2rem',
     userSelect: 'none',
     position: 'relative',
-    zIndex: 2,
+    zIndex: 5,
   },
   crossWrap: {
     marginBottom: '-8px',
@@ -237,7 +283,7 @@ const styles: Record<string, React.CSSProperties> = {
   tagline: {
     fontFamily: 'var(--font-mono)',
     fontSize: '14px',
-    color: '#444',
+    color: '#555',
     marginTop: '24px',
     letterSpacing: '0.04em',
   },
@@ -248,17 +294,30 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '40px',
     alignItems: 'center',
   },
-  cta: {
+  secondaryCta: {
     fontFamily: 'var(--font-heading)',
     fontWeight: 700,
-    fontSize: '15px',
-    display: 'inline-block',
-    transition: 'color 0.2s, letter-spacing 0.3s',
+    fontSize: '13px',
+    color: '#555',
+    letterSpacing: '0.06em',
+    transition: 'color 0.2s',
   },
-  ctaArrow: {
-    display: 'inline-block',
-    marginLeft: '6px',
-    opacity: 0.6,
+  mobileCta: {
+    display: 'block',
+    fontFamily: 'var(--font-heading)',
+    fontWeight: 700,
+    fontSize: '16px',
+    color: '#f0ece4',
+    letterSpacing: '0.06em',
+    border: '1px solid rgba(240,236,228,0.2)',
+    padding: '16px 32px',
+    minHeight: '52px',
+    textAlign: 'center',
+    textDecoration: 'none',
+  },
+  mobileCtaSecondary: {
+    color: '#888',
+    border: '1px solid rgba(240,236,228,0.1)',
   },
   version: {
     position: 'absolute',
