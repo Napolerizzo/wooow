@@ -40,6 +40,7 @@ export default function MarkingPage() {
   const [remoteFlashCells, setRemoteFlashCells]   = useState<Set<string>>(new Set());
   const [sessionTag, setSessionTag]               = useState('');
   const [editingSessionTag, setEditingSessionTag] = useState(false);
+  const [sessionFilter, setSessionFilter]         = useState<string>('ALL');
   const [showAddDelegate, setShowAddDelegate]     = useState(false);
 
   const supabaseRef           = useRef(createClient());
@@ -269,7 +270,7 @@ export default function MarkingPage() {
 
   async function updateDelegate(delegateId: string, updates: {
     roll_call_status?: 'present' | 'present_and_voting' | 'absent';
-    verbatim?: string; eb_remarks?: string;
+    verbatim?: string; eb_remarks?: string; withdrawn_at?: string | null;
   }) {
     await fetch(`/api/committee/${committeeId}/delegates`, {
       method: 'PATCH',
@@ -339,8 +340,26 @@ export default function MarkingPage() {
             </div>
           )}
 
-          {/* Session tag */}
-          <div style={styles.sessionTagWrap}>
+          {/* Session pill bar */}
+          <div style={styles.sessionPillBar} role="group" aria-label="Session filter">
+            {/* Derive known sessions from marks */}
+            {(() => {
+              const sessions = ['ALL', ...Array.from(new Set(marks.map((m) => (m as Mark & { session_tag?: string }).session_tag).filter(Boolean) as string[]))];
+              return sessions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSessionFilter(s)}
+                  style={{
+                    ...styles.sessionPill,
+                    ...(sessionFilter === s ? styles.sessionPillActive : {}),
+                  }}
+                  aria-pressed={sessionFilter === s}
+                >
+                  {s}
+                </button>
+              ));
+            })()}
+            {/* New session */}
             {editingSessionTag ? (
               <input
                 autoFocus
@@ -348,18 +367,18 @@ export default function MarkingPage() {
                 onChange={(e) => setSessionTag(e.target.value)}
                 onBlur={() => setEditingSessionTag(false)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingSessionTag(false); }}
-                placeholder="SESSION TAG…"
+                placeholder="SESSION NAME…"
                 style={styles.sessionTagInput}
                 maxLength={40}
-                aria-label="Session tag"
+                aria-label="New session tag"
               />
             ) : (
               <button
                 onClick={() => setEditingSessionTag(true)}
-                style={{ ...styles.sessionTagBtn, color: sessionTag ? 'var(--color-accent)' : '#333' }}
-                title="Tag this marking session"
+                style={styles.sessionPillNew}
+                title="Start new session"
               >
-                {sessionTag || 'TAG SESSION'}
+                + NEW SESSION
               </button>
             )}
           </div>
@@ -575,8 +594,10 @@ const styles: Record<string, React.CSSProperties> = {
   modalActions: { display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' },
   modalCancel: { fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--secondary)', background: 'none', border: '1px solid var(--border-subtle)', padding: '0.5rem 0.9rem', cursor: 'pointer', letterSpacing: '0.06em' },
   modalConfirm: { fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--black)', background: 'var(--off-white)', border: '1px solid var(--off-white)', padding: '0.5rem 0.9rem', cursor: 'pointer', letterSpacing: '0.06em' },
-  sessionTagWrap: { display: 'flex', alignItems: 'center' },
-  sessionTagBtn: { fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.08em', background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0' },
+  sessionPillBar: { display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' },
+  sessionPill: { fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', background: 'transparent', border: '1px solid #222', color: '#555', padding: '3px 10px', cursor: 'pointer', transition: 'all 0.15s', minHeight: '28px' },
+  sessionPillActive: { border: '1px solid var(--color-accent)', color: 'var(--color-accent)', background: 'rgba(201,185,154,0.06)' },
+  sessionPillNew: { fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', background: 'transparent', border: '1px dashed #333', color: '#444', padding: '3px 10px', cursor: 'pointer', minHeight: '28px' },
   sessionTagInput: { fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.08em', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border)', color: 'var(--color-accent)', padding: '0.15rem 0', width: '130px', outline: 'none' },
   addDelegateBtn: { fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.08em', color: 'var(--color-text-secondary)', background: 'transparent', border: '1px solid var(--color-border)', padding: '0.25rem 0.6rem', cursor: 'pointer' },
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Database } from '@/types/database';
 
@@ -32,6 +32,7 @@ interface Props {
   onUpdateDelegate: (delegateId: string, updates: {
     verbatim?: string;
     eb_remarks?: string;
+    withdrawn_at?: string | null;
   }) => Promise<void>;
 }
 
@@ -65,6 +66,8 @@ export default function DelegateView({
   const [verbatim, setVerbatim] = useState(delegate?.verbatim ?? '');
   const [remarks, setRemarks] = useState(delegate?.eb_remarks ?? '');
   const [savingText, setSavingText] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const swipeDir = useRef<'left' | 'right' | null>(null);
 
   useEffect(() => {
     setVerbatim(delegate?.verbatim ?? '');
@@ -87,8 +90,29 @@ export default function DelegateView({
     setSavingText(false);
   }
 
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0 && selectedIdx < delegates.length - 1) {
+      swipeDir.current = 'left';
+      onSelectIdx(selectedIdx + 1);
+    } else if (dx > 0 && selectedIdx > 0) {
+      swipeDir.current = 'right';
+      onSelectIdx(selectedIdx - 1);
+    }
+  }
+
   return (
-    <div style={styles.root}>
+    <div
+      style={styles.root}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* ── Navigation ────────────────────────────────────────────────── */}
       <div style={styles.nav}>
         <button
@@ -136,7 +160,32 @@ export default function DelegateView({
           >
             {/* Header */}
             <div style={styles.delegateHeader}>
-              <h2 style={styles.delegateName}>{delegate.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+                <h2 style={styles.delegateName} className="aberration-always-sm">{delegate.name}</h2>
+                {!isLocked && (
+                  <button
+                    onClick={() => {
+                      const isWithdrawn = !!(delegate as Delegate & { withdrawn_at?: string | null }).withdrawn_at;
+                      onUpdateDelegate(delegate.id, { withdrawn_at: isWithdrawn ? null : new Date().toISOString() });
+                    }}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.6rem',
+                      letterSpacing: '0.1em',
+                      color: (delegate as Delegate & { withdrawn_at?: string | null }).withdrawn_at ? '#e05252' : '#444',
+                      background: 'none',
+                      border: `1px solid ${(delegate as Delegate & { withdrawn_at?: string | null }).withdrawn_at ? '#e05252' : '#2a2a2a'}`,
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      marginTop: '4px',
+                    }}
+                    aria-label="Toggle delegate withdrawal"
+                  >
+                    {(delegate as Delegate & { withdrawn_at?: string | null }).withdrawn_at ? 'WITHDRAWN ✕' : 'WITHDRAW'}
+                  </button>
+                )}
+              </div>
               {(delegate.country || delegate.portfolio) && (
                 <p style={styles.delegateSubtitle}>
                   {[delegate.country, delegate.portfolio].filter(Boolean).join(' · ')}
@@ -433,9 +482,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   delegateName: {
     fontFamily: 'var(--font-heading)',
-    fontSize: '2rem',
+    fontWeight: 800,
+    fontSize: 'clamp(2rem, 5vw, 3.5rem)',
     color: 'var(--off-white)',
     marginBottom: '0.25rem',
+    lineHeight: 1.0,
+    letterSpacing: '-0.02em',
   },
   delegateSubtitle: {
     fontFamily: 'var(--font-body)',
@@ -588,23 +640,28 @@ const scoreStyles: Record<string, React.CSSProperties> = {
   wrap: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.25rem',
+    gap: '0.3rem',
     minWidth: '120px',
   },
   label: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.65rem',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.62rem',
     color: 'var(--muted)',
-    letterSpacing: '0.04em',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
   },
   input: {
-    background: 'transparent',
-    border: '1px solid var(--border-emphasis)',
-    padding: '0.4rem 0.5rem',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border-2)',
+    padding: '0 0.75rem',
     color: 'var(--off-white)',
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.9rem',
-    width: '90px',
+    fontFamily: 'var(--font-heading)',
+    fontWeight: 700,
+    fontSize: '1.6rem',
+    width: '110px',
+    height: '80px',
     borderRadius: '0',
+    textAlign: 'center',
+    transition: 'border-color 0.15s',
   },
 };
