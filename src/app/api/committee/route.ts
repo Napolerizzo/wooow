@@ -61,6 +61,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const admin = getAdminClient();
+
+  // Ensure the profile row exists before inserting a conference.
+  // conferences.created_by is a FK → profiles.id. If the handle_new_user
+  // trigger wasn't applied in Supabase, the profile row may be missing.
+  await admin.from('profiles').upsert(
+    {
+      id: user.id,
+      email: user.email ?? '',
+      display_name: user.user_metadata?.display_name ?? user.email ?? 'Unknown',
+    },
+    { onConflict: 'id', ignoreDuplicates: true }
+  );
+
   // Body size limit: 50KB
   const contentLength = Number(req.headers.get('content-length') ?? 0);
   if (contentLength > 50_000) {
@@ -83,7 +97,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { conference_name, committee_name, eb_members, award_tiers, delegates } = result.data;
-  const admin = getAdminClient();
 
   // 1. Create or find conference
   let conferenceId: string;
