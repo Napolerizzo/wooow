@@ -14,7 +14,7 @@ import ErrorOverlay from '@/components/ErrorOverlay';
 type Delegate   = Database['public']['Tables']['delegates']['Row'];
 type SchemaField = Database['public']['Tables']['marking_schema']['Row'];
 type Mark       = Database['public']['Tables']['marks']['Row'];
-type ViewMode   = 'table' | 'delegate';
+type ViewMode   = 'table' | 'delegate' | 'verbatim';
 
 interface OnlineUser { id: string; name: string; color: string; }
 
@@ -310,11 +310,15 @@ export default function MarkingPage() {
       <div style={styles.toolbar}>
         {!isMobile ? (
           <div style={styles.modeToggle} role="tablist" aria-label="Marking view mode">
-            {(['table', 'delegate'] as ViewMode[]).map((m) => (
+            {([
+              ['table',    'TABLE'],
+              ['delegate', 'DELEGATE'],
+              ['verbatim', 'VERBATIM'],
+            ] as [ViewMode, string][]).map(([m, label]) => (
               <button key={m} onClick={() => setMode(m)} role="tab"
                 aria-selected={mode === m}
                 style={{ ...styles.modeBtn, ...(mode === m ? styles.modeBtnActive : {}) }}>
-                {m === 'table' ? 'TABLE VIEW' : 'DELEGATE VIEW'}
+                {label}
               </button>
             ))}
           </div>
@@ -426,6 +430,15 @@ export default function MarkingPage() {
               onDelegateClick={(idx) => { setSelectedDelegateIdx(idx); setMode('delegate'); }}
             />
           </motion.div>
+        ) : mode === 'verbatim' ? (
+          <motion.div key="verbatim" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ ...styles.viewContainer, overflowY: 'auto' }}>
+            <VerbatimView
+              delegates={delegates} schema={schema} marks={marks}
+              isLocked={isLocked}
+              onUpdateDelegate={updateDelegate}
+            />
+          </motion.div>
         ) : (
           <motion.div key="delegate" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={styles.viewContainer}>
@@ -460,6 +473,137 @@ export default function MarkingPage() {
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ── VerbatimView: per-speech, all delegates ───────────────────────────────
+function VerbatimView({ delegates, schema, marks, isLocked, onUpdateDelegate }: {
+  delegates: Delegate[];
+  schema: SchemaField[];
+  marks: Mark[];
+  isLocked: boolean;
+  onUpdateDelegate: (id: string, updates: { verbatim?: string }) => Promise<void>;
+}) {
+  const speechFields = schema.filter(
+    (f) => f.field_type === 'speech' || f.field_type === 'chit' || f.field_type === 'poi' || f.field_type === 'poi_reply'
+  );
+  // Max items across all delegates for each field
+  function maxItems(field: SchemaField) {
+    const idxs = marks.filter((m) => m.schema_field_id === field.id).map((m) => m.item_index);
+    return idxs.length > 0 ? Math.max(...idxs) : 1;
+  }
+
+  return (
+    <div style={{ padding: '1.5rem 2rem', maxWidth: '860px', margin: '0 auto', overflowY: 'auto', height: '100%' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#555', letterSpacing: '0.12em', marginBottom: '1.5rem' }}>
+        VERBATIM RECORDS — organized by speech slot across all delegates
+      </p>
+
+      {/* Roll call attendance summary */}
+      <section style={{ marginBottom: '2rem' }}>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--off-white)', marginBottom: '0.75rem', letterSpacing: '0.06em' }}>
+          ROLL CALL ATTENDANCE
+        </h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {delegates.map((d) => (
+            <div key={d.id} style={{
+              fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.06em',
+              border: '1px solid #222', padding: '4px 10px',
+              color: d.roll_call_status === 'present_and_voting' ? '#52c97c'
+                   : d.roll_call_status === 'present' ? '#f0ece4'
+                   : '#555',
+            }}>
+              {d.name}
+              <span style={{ marginLeft: '6px', opacity: 0.7 }}>
+                {d.roll_call_status === 'present_and_voting' ? 'P&V'
+                 : d.roll_call_status === 'present' ? 'P'
+                 : 'ABS'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Per field / per speech slot */}
+      {speechFields.map((field) => {
+        const n = maxItems(field);
+        return (
+          <section key={field.id} style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--off-white)', marginBottom: '0.5rem', letterSpacing: '0.06em' }}>
+              {field.field_name.toUpperCase()}
+            </h2>
+            {Array.from({ length: n }, (_, si) => si + 1).map((slot) => (
+              <div key={slot} style={{ marginBottom: '1.5rem' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#555', letterSpacing: '0.1em', marginBottom: '0.6rem', borderBottom: '1px solid #111', paddingBottom: '0.4rem' }}>
+                  {field.field_type === 'speech' ? `SPEECH ${slot}` : `${field.field_type.toUpperCase()} ${slot}`}
+                </p>
+                {delegates.map((d) => (
+                  <VerbatimRow
+                    key={d.id}
+                    delegateName={d.name}
+                    verbatim={d.verbatim ?? ''}
+                    slot={slot}
+                    isLocked={isLocked}
+                    onSave={(v) => onUpdateDelegate(d.id, { verbatim: v })}
+                  />
+                ))}
+              </div>
+            ))}
+          </section>
+        );
+      })}
+
+      {/* If no speech fields, show global verbatim */}
+      {speechFields.length === 0 && (
+        <section>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--off-white)', marginBottom: '0.75rem' }}>DELEGATE VERBATIM</h2>
+          {delegates.map((d) => (
+            <VerbatimRow
+              key={d.id}
+              delegateName={d.name}
+              verbatim={d.verbatim ?? ''}
+              slot={1}
+              isLocked={isLocked}
+              onSave={(v) => onUpdateDelegate(d.id, { verbatim: v })}
+            />
+          ))}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function VerbatimRow({ delegateName, verbatim, isLocked, onSave }: {
+  delegateName: string;
+  verbatim: string;
+  slot: number;
+  isLocked: boolean;
+  onSave: (v: string) => void;
+}) {
+  const [val, setVal] = useState(verbatim);
+  useEffect(() => { setVal(verbatim); }, [verbatim]);
+
+  return (
+    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: '#888', letterSpacing: '0.06em', width: '140px', flexShrink: 0, paddingTop: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {delegateName}
+      </span>
+      <textarea
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => { if (val !== verbatim) onSave(val); }}
+        disabled={isLocked}
+        placeholder="Enter verbatim..."
+        rows={2}
+        style={{
+          flex: 1, background: '#0a0a0a', border: '1px solid #1a1a1a',
+          color: '#c8c4bc', fontFamily: 'var(--font-mono)', fontSize: '0.72rem',
+          lineHeight: 1.6, padding: '0.4rem 0.6rem', resize: 'vertical',
+          minHeight: '52px', outline: 'none',
+        }}
+        aria-label={`Verbatim for ${delegateName}`}
+      />
     </div>
   );
 }
@@ -574,7 +718,7 @@ const styles: Record<string, React.CSSProperties> = {
   schemaLink: { color: 'var(--off-white)', textDecoration: 'underline', textUnderlineOffset: '3px' },
   toolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1.5rem', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, gap: '1rem', flexWrap: 'wrap' },
   modeToggle: { display: 'flex', gap: '0' },
-  modeBtn: { fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', color: 'var(--secondary)', background: 'transparent', border: '1px solid var(--border-subtle)', padding: '0.4rem 0.9rem', cursor: 'pointer' },
+  modeBtn: { fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', color: '#888', background: 'transparent', border: '1px solid #282828', padding: '0.4rem 0.9rem', cursor: 'pointer', minHeight: '36px' },
   modeBtnActive: { color: 'var(--off-white)', background: 'rgba(240,236,228,0.06)', border: '1px solid var(--border-emphasis)' },
   toolbarRight: { display: 'flex', alignItems: 'center', gap: '1rem' },
   onlineUsers: { display: 'flex', gap: '0.3rem', alignItems: 'center' },

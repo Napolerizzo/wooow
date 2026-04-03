@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<RollCallStatus, string> = {
   present_and_voting: 'P&V',
 };
 const STATUS_COLOR: Record<RollCallStatus, string> = {
-  absent: '#444',
+  absent: '#666',
   present: '#52c97c',
   present_and_voting: '#e0a952',
 };

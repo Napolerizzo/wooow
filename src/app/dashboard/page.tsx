@@ -155,7 +155,7 @@ export default function DashboardPage() {
 const styles: Record<string, React.CSSProperties> = {
   root: {
     minHeight: '100vh',
-    padding: '80px 48px 100px',
+    padding: 'clamp(48px, 8vw, 80px) clamp(20px, 5vw, 48px) 100px',
     position: 'relative',
     zIndex: 10,
   },
@@ -177,7 +177,7 @@ const styles: Record<string, React.CSSProperties> = {
   loadingText: {
     fontFamily: 'var(--font-body)',
     fontSize: '14px',
-    color: '#444',
+    color: '#888',
     letterSpacing: '0.1em',
   },
   emptyState: {
@@ -189,19 +189,19 @@ const styles: Record<string, React.CSSProperties> = {
   emptyHeading: {
     fontFamily: 'var(--font-heading)',
     fontSize: '56px',
-    color: '#222',
+    color: '#888',
     lineHeight: 1,
   },
   emptySub: {
     fontFamily: 'var(--font-mono)',
     fontSize: '18px',
-    color: '#1e1e1e',
+    color: '#666',
     fontStyle: 'italic',
   },
   card: {
     width: '200px',
     background: 'var(--color-surface)',
-    border: '1px solid #1e1e1e',
+    border: '1px solid #252525',
     padding: '16px',
     cursor: 'pointer',
     display: 'flex',
@@ -219,7 +219,7 @@ const styles: Record<string, React.CSSProperties> = {
   cardConf: {
     fontFamily: 'var(--font-body)',
     fontSize: '12px',
-    color: '#555',
+    color: '#888',
   },
   cardMeta: {
     display: 'flex',
@@ -230,21 +230,21 @@ const styles: Record<string, React.CSSProperties> = {
   cardRole: {
     fontFamily: 'var(--font-body)',
     fontSize: '11px',
-    color: '#444',
+    color: '#777',
     letterSpacing: '0.04em',
   },
   cardLocked: {
     fontFamily: 'var(--font-body)',
     fontSize: '10px',
-    color: '#333',
+    color: '#888',
     letterSpacing: '0.08em',
-    border: '1px solid #2a2a2a',
+    border: '1px solid #333',
     padding: '1px 4px',
   },
   newBtn: {
     fontFamily: 'var(--font-heading)',
     fontSize: '18px',
-    color: '#444',
+    color: '#888',
     background: 'none',
     border: 'none',
     cursor: 'pointer',

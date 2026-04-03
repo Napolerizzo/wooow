@@ -219,9 +219,9 @@ export default function SetupPage() {
   }
 
   return (
-    <div style={styles.root}>
+    <div style={styles.root} className="setup-root">
       {/* ── Left panel: field list ─────────────────────────────────────── */}
-      <div style={styles.leftPanel}>
+      <div style={styles.leftPanel} className="setup-left-panel">
         <div style={styles.leftHeader}>
           <h1 style={styles.heading}>MARKING SCHEMA</h1>
           <p style={styles.subheading}>Define how delegates are scored</p>
@@ -320,7 +320,7 @@ export default function SetupPage() {
       </div>
 
       {/* ── Right panel: field config ─────────────────────────────────── */}
-      <div style={styles.rightPanel}>
+      <div style={styles.rightPanel} className="setup-right-panel">
         <AnimatePresence mode="wait">
           {selectedField !== null && selectedIdx !== null ? (
             <motion.div

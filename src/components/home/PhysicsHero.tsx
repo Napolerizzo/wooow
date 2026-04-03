@@ -3,89 +3,85 @@
 import { useEffect, useRef } from 'react';
 
 const LETTERS = ['M', 'A', 'R', 'K', 'Z', 'O'];
-const LETTER_SIZE = 80; // px, font-size
-const CHAR_W = 52;
-const CHAR_H = 76;
+const CHAR_W = 80;   // body collision width
+const CHAR_H = 90;   // body collision height
+const FONT_SIZE = 100;
 
 export default function PhysicsHero({ onReady }: { onReady?: () => void }) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const engineRef = useRef<import('matter-js').Engine | null>(null);
-  const renderRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
   const divRefs = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
-    let Matter: typeof import('matter-js');
-    let engine: import('matter-js').Engine;
-    let runner: import('matter-js').Runner;
-    let mouseConstraint: import('matter-js').MouseConstraint;
-    let bodies: import('matter-js').Body[] = [];
     let mounted = true;
+    let runner: import('matter-js').Runner | null = null;
+    let engine: import('matter-js').Engine | null = null;
 
     import('matter-js').then((M) => {
-      if (!mounted || !canvasRef.current) return;
-      Matter = M;
+      if (!mounted) return;
 
-      engine = Matter.Engine.create({ gravity: { y: 1.2 } });
-      engineRef.current = engine;
-      runner = Matter.Runner.create();
+      // Always use window dimensions for physics world
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const T = 40;
 
-      const W = canvasRef.current.offsetWidth || window.innerWidth;
-      const H = canvasRef.current.offsetHeight || window.innerHeight;
-      const T = 20; // wall thickness
+      engine = M.Engine.create({ gravity: { y: 1.5 } });
+      runner = M.Runner.create();
 
-      // Ground + walls
-      const ground = Matter.Bodies.rectangle(W / 2, H + T / 2, W, T, { isStatic: true, label: 'ground' });
-      const wallL  = Matter.Bodies.rectangle(-T / 2, H / 2, T, H, { isStatic: true });
-      const wallR  = Matter.Bodies.rectangle(W + T / 2, H / 2, T, H, { isStatic: true });
-      Matter.Composite.add(engine.world, [ground, wallL, wallR]);
+      // Boundaries
+      const ground = M.Bodies.rectangle(W / 2, H + T / 2, W * 3, T, { isStatic: true });
+      const wallL  = M.Bodies.rectangle(-T / 2, H / 2, T, H * 2, { isStatic: true });
+      const wallR  = M.Bodies.rectangle(W + T / 2, H / 2, T, H * 2, { isStatic: true });
+      M.Composite.add(engine.world, [ground, wallL, wallR]);
 
-      // Drop MARKZO letters from above
-      const totalW = LETTERS.length * (CHAR_W + 8);
-      const startX = (W - totalW) / 2 + CHAR_W / 2;
-
-      bodies = LETTERS.map((_, i) => {
-        const x = startX + i * (CHAR_W + 8);
-        const y = -CHAR_H * (i + 1) * 0.6; // stagger drop height
-        const body = Matter.Bodies.rectangle(x, y, CHAR_W - 4, CHAR_H - 4, {
-          restitution: 0.45,
-          friction: 0.3,
-          frictionAir: 0.015,
-          label: `letter-${i}`,
-          chamfer: { radius: 4 },
+      // Spread letters evenly across the viewport top
+      const count  = LETTERS.length;
+      const gap    = W / (count + 1);
+      const bodies = LETTERS.map((_, i) => {
+        const x = gap * (i + 1) + (Math.random() - 0.5) * (gap * 0.3);
+        const y = -(80 + i * 120 + Math.random() * 60); // cascade from top
+        return M.Bodies.rectangle(x, y, CHAR_W - 8, CHAR_H - 10, {
+          restitution: 0.38,
+          friction: 0.25,
+          frictionAir: 0.012,
+          angle: (Math.random() - 0.5) * 0.4,
+          chamfer: { radius: 6 },
         });
-        return body;
       });
-      Matter.Composite.add(engine.world, bodies);
+      M.Composite.add(engine.world, bodies);
 
-      // Mouse constraint
-      const mouse = Matter.Mouse.create(canvasRef.current);
-      mouseConstraint = Matter.MouseConstraint.create(engine, {
-        mouse,
-        constraint: { stiffness: 0.2, render: { visible: false } },
-      });
-      Matter.Composite.add(engine.world, mouseConstraint);
+      // Mouse drag
+      if (containerRef.current) {
+        const mouse = M.Mouse.create(containerRef.current);
+        const mc = M.MouseConstraint.create(engine, {
+          mouse,
+          constraint: { stiffness: 0.18, render: { visible: false } },
+        });
+        M.Composite.add(engine.world, mc);
+      }
 
-      Matter.Runner.run(runner, engine);
+      M.Runner.run(runner, engine);
 
-      // Sync DOM divs
-      renderRef.current = setInterval(() => {
+      // Sync letter divs
+      function tick() {
         bodies.forEach((body, i) => {
           const el = divRefs.current[i];
           if (!el) return;
           el.style.transform = `translate(${body.position.x - CHAR_W / 2}px, ${body.position.y - CHAR_H / 2}px) rotate(${body.angle}rad)`;
         });
-      }, 16);
-
+        rafRef.current = requestAnimationFrame(tick);
+      }
+      rafRef.current = requestAnimationFrame(tick);
       onReady?.();
     });
 
     return () => {
       mounted = false;
-      if (renderRef.current) clearInterval(renderRef.current);
-      if (engineRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      if (runner && engine) {
         import('matter-js').then((M) => {
-          M.Runner.stop(runner);
-          M.Engine.clear(engineRef.current!);
+          if (runner) M.Runner.stop(runner);
+          if (engine) M.Engine.clear(engine);
         });
       }
     };
@@ -94,12 +90,13 @@ export default function PhysicsHero({ onReady }: { onReady?: () => void }) {
 
   return (
     <div
-      ref={canvasRef}
+      ref={containerRef}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
         overflow: 'hidden',
         pointerEvents: 'auto',
+        zIndex: 0,
       }}
       aria-hidden="true"
     >
@@ -116,14 +113,15 @@ export default function PhysicsHero({ onReady }: { onReady?: () => void }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontFamily: 'var(--font-wordmark)',
+            fontFamily: '"Syne", sans-serif',
             fontWeight: 800,
-            fontSize: `${LETTER_SIZE}px`,
+            fontSize: `${FONT_SIZE}px`,
             color: '#f0ece4',
             lineHeight: 1,
             userSelect: 'none',
             willChange: 'transform',
-            textShadow: '-2px 0 rgba(255,0,0,0.45), 2px 0 rgba(0,255,255,0.45)',
+            textShadow: '-3px 0 rgba(255,0,0,0.5), 3px 0 rgba(0,255,255,0.5)',
+            letterSpacing: '-0.02em',
           }}
         >
           {letter}

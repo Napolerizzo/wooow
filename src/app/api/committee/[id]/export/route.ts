@@ -176,6 +176,7 @@ export async function GET(
       delegate_name: delegate.name,
       country: delegate.country,
       portfolio: delegate.portfolio,
+      roll_call_status: delegate.roll_call_status,
       total_score: total,
       rank,
       award_tier: tier?.tier_name ?? null,
@@ -208,6 +209,7 @@ export async function GET(
         rank: i + 1,
         name: delegate.name,
         country: delegate.country,
+        roll_call_status: delegate.roll_call_status,
         total_score: total,
         award_tier: tiers.find((t) =>
           i + 1 >= t.rank_from && i + 1 < t.rank_from + t.num_awards

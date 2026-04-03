@@ -359,3 +359,43 @@ body.glitch-active {
   100% { transform: scale(1); }
 }
 .rank-pop { animation: rank-pop 0.3s ease-out forwards; }
+
+/* ─── Setup page mobile: stack panels vertically ────────────────────────── */
+@media (max-width: 767px) {
+  .setup-root {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 56px);
+    overflow: auto !important;
+  }
+  .setup-left-panel {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+  .setup-right-panel {
+    padding: 1rem !important;
+    overflow-y: visible !important;
+  }
+}
+
+/* ─── Global text readability: enforce minimum contrast ────────────────── */
+/* Any text that could be on dark bg must be ≥ #555 */
+@media (max-width: 767px) {
+  /* Bump all very dark text up to readable levels on mobile */
+  * {
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* Ensure role/meta labels are readable */
+[style*="color: #333"],
+[style*="color:#333"],
+[style*="color: #2a2a2a"],
+[style*="color: #222"],
+[style*="color:#222"],
+[style*="color: #1e1e1e"] {
+  color: #888 !important;
+}

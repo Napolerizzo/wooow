@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
+import FontCycleText from '@/components/FontCycleText';
 import ZoomTransition, { type ZoomTransitionHandle } from '@/components/home/ZoomTransition';
 import PendulumCTA from '@/components/home/PendulumCTA';
 
@@ -109,21 +110,34 @@ export default function LandingPage() {
           </svg>
         </div>
 
-        {/* MARKZO wordmark — static on mobile, physics on desktop (physics letters behind) */}
-        <motion.h1
-          style={{
-            ...styles.wordmark,
-            // On desktop, hide the static wordmark once physics hero is active
-            // Keep it visible during initial entry sequence
-            opacity: 1,
-          }}
-          className="aberration-always"
-          initial={{ scale: 1.3, opacity: 0 }}
-          animate={phase >= 4 ? { scale: 1, opacity: 1 } : { scale: 1.3, opacity: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        >
-          MARKZO
-        </motion.h1>
+        {/* MARKZO wordmark — letter-by-letter stagger entry + font cycling */}
+        <div style={styles.wordmarkWrap} aria-label="MARKZO" role="heading" aria-level={1}>
+          {'MARKZO'.split('').map((letter, i) => (
+            <motion.span
+              key={i}
+              style={styles.wordmarkLetter}
+              initial={{ y: 60, opacity: 0, rotateX: -90, skewX: -20 }}
+              animate={phase >= 4
+                ? { y: 0, opacity: 1, rotateX: 0, skewX: 0 }
+                : { y: 60, opacity: 0, rotateX: -90, skewX: -20 }}
+              transition={{
+                duration: 0.7,
+                delay: i * 0.07,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+            >
+              <FontCycleText
+                interval={2800 + i * 400}
+                style={{
+                  ...styles.wordmark,
+                  textShadow: '-3px 0 rgba(255,0,0,0.5), 3px 0 rgba(0,255,255,0.5)',
+                }}
+              >
+                {letter}
+              </FontCycleText>
+            </motion.span>
+          ))}
+        </div>
 
         {/* Tagline */}
         <motion.p
@@ -272,13 +286,24 @@ const styles: Record<string, React.CSSProperties> = {
   crossWrap: {
     marginBottom: '-8px',
   },
+  wordmarkWrap: {
+    display: 'flex',
+    alignItems: 'baseline',
+    perspective: '600px',
+    userSelect: 'none',
+  },
+  wordmarkLetter: {
+    display: 'inline-block',
+    transformOrigin: 'bottom center',
+  },
   wordmark: {
-    fontFamily: 'var(--font-wordmark)',
     fontWeight: 800,
     fontSize: 'clamp(64px, 10vw, 120px)',
     color: '#f0ece4',
     lineHeight: 1,
-    letterSpacing: '-0.02em',
+    letterSpacing: '-0.01em',
+    display: 'inline-block',
+    transition: 'font-family 0s',
   },
   tagline: {
     fontFamily: 'var(--font-mono)',
