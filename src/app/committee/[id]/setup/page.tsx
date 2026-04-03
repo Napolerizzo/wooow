@@ -249,6 +249,7 @@ export default function SetupPage() {
         <Reorder.Group
           axis="y"
           values={fields}
+          className="setup-field-list"
           onReorder={(newOrder) => {
             setFields(newOrder.map((f, i) => ({ ...f, sort_order: i })));
             if (selectedIdx !== null) {
