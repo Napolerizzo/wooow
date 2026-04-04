@@ -197,29 +197,36 @@ export default function TableView({
                       <StatCard label="σ"    value={fSd.toFixed(1)} accent={highVar ? '#e0a952' : undefined} />
                     </div>
                     {/* Distribution bar */}
-                    <div style={{ position: 'relative', height: '16px', background: '#0c0c0c', marginTop: '0.25rem', maxWidth: '400px' }}>
+                    <div style={{ position: 'relative', height: '18px', background: '#0c0c0c', marginTop: '0.25rem', maxWidth: '400px', overflow: 'hidden' }}>
                       {vals.map((v, i) => {
                         const pct = field.max_score > 0 ? (v / field.max_score) * 100 : 0;
                         return (
-                          <div key={i} style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            left: `${pct}%`,
-                            width: '1px',
-                            height: '100%',
-                            background: 'rgba(240,236,228,0.15)',
-                          }} />
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: '100%' }}
+                            transition={{ delay: i * 0.015, duration: 0.3, ease: 'easeOut' }}
+                            style={{
+                              position: 'absolute', bottom: 0,
+                              left: `${pct}%`, width: '1px',
+                              background: 'rgba(240,236,228,0.18)',
+                            }}
+                          />
                         );
                       })}
                       {/* Mean line */}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: `${field.max_score > 0 ? (fMean / field.max_score) * 100 : 0}%`,
-                        width: '2px',
-                        height: '100%',
-                        background: '#52c97c',
-                      }} />
+                      <motion.div
+                        initial={{ scaleY: 0 }}
+                        animate={{ scaleY: 1 }}
+                        transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          position: 'absolute', bottom: 0,
+                          left: `${field.max_score > 0 ? (fMean / field.max_score) * 100 : 0}%`,
+                          width: '2px', height: '100%',
+                          background: '#52c97c', transformOrigin: 'bottom',
+                          boxShadow: '0 0 6px rgba(82,201,124,0.5)',
+                        }}
+                      />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: '400px', marginTop: '2px' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#333' }}>0</span>
@@ -291,7 +298,10 @@ export default function TableView({
                 <motion.tr
                   key={delegate.id}
                   layout
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30, delay: rank * 0.018 }}
+                  className="mark-row"
                   style={{ ...styles.tr, background: rowBg }}
                 >
                   {/* Live rank */}
@@ -395,22 +405,45 @@ function TabBar({ mode, onChange, qMode }: { mode: TableMode; onChange: (m: Tabl
   return (
     <div style={styles.tabBar}>
       {(['marks', 'stats'] as TableMode[]).map((t) => (
-        <button key={t} onClick={() => onChange(t)} style={{ ...styles.tab, ...(mode === t ? styles.tabActive : {}) }}>
-          {t.toUpperCase()}
+        <button key={t} onClick={() => onChange(t)}
+          style={{ ...styles.tab, ...(mode === t ? styles.tabActive : {}), position: 'relative', overflow: 'hidden', transition: 'color 0.2s' }}>
+          {mode === t && (
+            <motion.span
+              layoutId="table-tab-pill"
+              style={{ position: 'absolute', inset: 0, background: 'rgba(240,236,228,0.05)', zIndex: 0,
+                borderBottom: '1.5px solid rgba(240,236,228,0.35)' }}
+              transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            />
+          )}
+          <span style={{ position: 'relative', zIndex: 1 }}>{t.toUpperCase()}</span>
         </button>
       ))}
       <div style={styles.tabSpacer} />
-      <span style={{ ...styles.qBadge, opacity: qMode ? 1 : 0.25 }}>Q</span>
+      <motion.span
+        animate={{ opacity: qMode ? 1 : 0.2, scale: qMode ? 1.05 : 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        style={{ ...styles.qBadge, boxShadow: qMode ? '0 0 10px rgba(201,185,154,0.3)' : 'none' }}
+      >Q</motion.span>
     </div>
   );
 }
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div style={{ padding: '0.5rem 0.85rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: '80px' }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.56rem', color: '#444', letterSpacing: '0.08em' }}>{label}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className="glow-hover"
+      style={{ padding: '0.5rem 0.85rem', border: `1px solid ${accent ? accent + '44' : 'var(--color-border)'}`,
+        display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: '80px',
+        background: accent ? `${accent}08` : 'transparent',
+        transition: 'border-color 0.2s',
+      }}
+    >
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.56rem', color: accent ?? '#555', letterSpacing: '0.08em' }}>{label}</span>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: accent ?? '#f0ece4', fontWeight: 500 }}>{value}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -439,6 +472,7 @@ function CellInput({ defaultValue, disabled, qMode, isFocused, onSave, onFocus, 
         if (e.key === 'Escape') { setValue(String(defaultValue)); e.currentTarget.blur(); }
       }}
       disabled={disabled} min={0} step={0.5}
+      className="cell-glow"
       style={{
         ...styles.cellInput,
         opacity: disabled ? 0.4 : 1,

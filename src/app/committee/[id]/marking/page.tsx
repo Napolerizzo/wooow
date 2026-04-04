@@ -312,7 +312,7 @@ export default function MarkingPage() {
       {/* ── Toolbar ───────────────────────────────────────────────────── */}
       <div style={styles.toolbar}>
         {!isMobile ? (
-          <div style={styles.modeToggle} role="tablist" aria-label="Marking view mode">
+          <div style={{ ...styles.modeToggle, position: 'relative' }} role="tablist" aria-label="Marking view mode">
             {([
               ['table',    'TABLE'],
               ['delegate', 'DELEGATE'],
@@ -320,8 +320,19 @@ export default function MarkingPage() {
             ] as [ViewMode, string][]).map(([m, label]) => (
               <button key={m} onClick={() => setMode(m)} role="tab"
                 aria-selected={mode === m}
-                style={{ ...styles.modeBtn, ...(mode === m ? styles.modeBtnActive : {}) }}>
-                {label}
+                style={{ ...styles.modeBtn, position: 'relative', overflow: 'hidden',
+                  color: mode === m ? 'var(--off-white)' : '#555',
+                  transition: 'color 0.2s',
+                }}>
+                {mode === m && (
+                  <motion.span
+                    layoutId="mode-tab-pill"
+                    style={{ position: 'absolute', inset: 0, background: 'rgba(240,236,228,0.07)',
+                      borderBottom: '1.5px solid rgba(201,185,154,0.5)', zIndex: 0 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{label}</span>
               </button>
             ))}
           </div>
@@ -333,12 +344,22 @@ export default function MarkingPage() {
           {/* Presence badges */}
           {onlineUsers.length > 0 && (
             <div style={styles.onlineUsers} aria-label="Online collaborators">
-              {onlineUsers.slice(0, 5).map((u) => (
-                <div key={u.id} style={{ ...styles.presenceBadge, background: u.color }}
-                  title={`${u.name} is viewing`} aria-label={u.name}>
-                  {u.name[0].toUpperCase()}
-                </div>
-              ))}
+              <AnimatePresence>
+                {onlineUsers.slice(0, 5).map((u) => (
+                  <motion.div
+                    key={u.id}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    style={{ ...styles.presenceBadge, background: u.color,
+                      boxShadow: `0 0 8px ${u.color}55` }}
+                    title={`${u.name} is viewing`} aria-label={u.name}
+                  >
+                    {u.name[0].toUpperCase()}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {onlineUsers.length > 5 && (
                 <div style={{ ...styles.presenceBadge, background: '#333' }}>
                   +{onlineUsers.length - 5}
@@ -392,7 +413,7 @@ export default function MarkingPage() {
 
           {!realtimeConnected && (
             <div style={styles.disconnected} role="status" aria-live="polite">
-              <span style={styles.disconnectedDot} />RECONNECTING...
+              <span style={styles.disconnectedDot} className="pulse-dot" />RECONNECTING...
             </div>
           )}
 
@@ -408,20 +429,32 @@ export default function MarkingPage() {
       </div>
 
       {/* ── Roll Call ─────────────────────────────────────────────────── */}
-      <RollCallSection
-        delegates={delegates} isLocked={isLocked}
-        quorumFraction={quorumFraction}
-        onUpdate={updateDelegate}
-        onQuorumFractionChange={async (v) => {
-          setQuorumFraction(v);
-          await supabaseRef.current.from('committees')
-            .update({ quorum_fraction: v } as Record<string, unknown>)
-            .eq('id', committeeId);
-        }}
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <RollCallSection
+          delegates={delegates} isLocked={isLocked}
+          quorumFraction={quorumFraction}
+          onUpdate={updateDelegate}
+          onQuorumFractionChange={async (v) => {
+            setQuorumFraction(v);
+            await supabaseRef.current.from('committees')
+              .update({ quorum_fraction: v } as Record<string, unknown>)
+              .eq('id', committeeId);
+          }}
+        />
+      </motion.div>
 
       {/* ── Recognition Tracker ───────────────────────────────────────── */}
-      <RecognitionSection committeeId={committeeId} delegates={delegates} />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <RecognitionSection committeeId={committeeId} delegates={delegates} />
+      </motion.div>
 
       {/* ── Marking View ──────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
@@ -722,9 +755,9 @@ const styles: Record<string, React.CSSProperties> = {
   noSchemaText: { fontFamily: 'var(--font-heading)', fontSize: '2rem', color: 'var(--secondary)' },
   noSchemaHint: { fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--muted)' },
   schemaLink: { color: 'var(--off-white)', textDecoration: 'underline', textUnderlineOffset: '3px' },
-  toolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1.5rem', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, gap: '1rem', flexWrap: 'wrap' },
+  toolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 1.5rem', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, gap: '1rem', flexWrap: 'wrap', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' },
   modeToggle: { display: 'flex', gap: '0' },
-  modeBtn: { fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', color: '#888', background: 'transparent', border: '1px solid #282828', padding: '0.4rem 0.9rem', cursor: 'pointer', minHeight: '36px' },
+  modeBtn: { fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', color: '#888', background: 'transparent', border: '1px solid #1e1e1e', padding: '0.4rem 0.9rem', cursor: 'pointer', minHeight: '36px' },
   modeBtnActive: { color: 'var(--off-white)', background: 'rgba(240,236,228,0.06)', border: '1px solid var(--border-emphasis)' },
   toolbarRight: { display: 'flex', alignItems: 'center', gap: '1rem' },
   onlineUsers: { display: 'flex', gap: '0.3rem', alignItems: 'center' },
