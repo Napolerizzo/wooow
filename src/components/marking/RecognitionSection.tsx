@@ -45,7 +45,6 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
   const [loading, setLoading] = useState(true);
   const [addingType, setAddingType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
-  const [showPresets, setShowPresets] = useState(false);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const load = useCallback(async () => {
@@ -97,7 +96,6 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
     if (res.ok) {
       setNewTypeName('');
       setAddingType(false);
-      setShowPresets(false);
       load();
     }
   }
