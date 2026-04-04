@@ -50,8 +50,11 @@ export default function CommitteeLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      {/* Page content — padding-top clears HUD (≈48px) */}
-      <main style={{ position: 'relative', zIndex: 10, paddingTop: '56px' }}>
+      {/* Page content — padding-top clears HUD top bar; right gap clears bottom-right nav on desktop */}
+      <main
+        className="committee-main"
+        style={{ position: 'relative', zIndex: 10, paddingTop: '56px' }}
+      >
         {children}
       </main>
     </div>

@@ -289,6 +289,13 @@ body.glitch-active {
   /* Tables collapse on mobile — handled per component */
 }
 
+/* ─── Committee main: pad right so content clears bottom-right nav (desktop) */
+@media (min-width: 768px) {
+  .committee-main {
+    padding-right: 120px;
+  }
+}
+
 /* ─── Mobile bottom nav (HUD) ────────────────────────────────────────────── */
 .mobile-bottom-nav {
   display: none;

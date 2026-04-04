@@ -310,6 +310,24 @@ export function PerDelegateSheetDocument({ sheets }: { sheets: DelegateSheetData
 
 // ── Full committee marksheet ────────────────────────────────────────────────
 
+interface RollCallData {
+  delegates: { name: string; country?: string | null; status?: string | null }[];
+  present: number; pav: number; absent: number; total: number;
+  quorum: number; simple_majority: number; special_majority: number;
+}
+
+interface RecognitionType { id: string; name: string; }
+interface RecognitionRow {
+  delegate_id: string; name: string; country?: string | null;
+  counts: { type_id: string; type_name: string; count: number }[];
+  total: number;
+}
+
+interface VerbatimItem {
+  name: string; country?: string | null;
+  verbatim?: string | null; eb_remarks?: string | null;
+}
+
 export function FullCommitteeMarksheetDocument({
   data, auditLog,
 }: {
@@ -325,6 +343,10 @@ export function FullCommitteeMarksheetDocument({
     schema_fields: { id: string; field_name: string }[];
     award_assignments: { award_tier: string; delegates: string[] }[];
     stats?: { present: number; pav: number; absent: number; total: number; quorum: number };
+    roll_call?: RollCallData;
+    recognition_types?: RecognitionType[];
+    recognition_table?: RecognitionRow[];
+    verbatim_list?: VerbatimItem[];
   };
   auditLog: {
     id: string; edited_at: string; edited_by_guest_name: string | null;
@@ -332,22 +354,63 @@ export function FullCommitteeMarksheetDocument({
   }[];
 }) {
   const fields = data.schema_fields;
-  return (
-    <Document title="Markzo — Full Committee Marksheet">
-      <Page size="A4" style={{ ...s.page, paddingBottom: 80 }} orientation="landscape">
-        {/* Header */}
-        <View style={s.header}>
-          <Text style={s.headerWordmark}>MARKZO</Text>
-          <View style={s.headerCenter}>
-            <Text style={s.headerConference}>{data.conference_name}</Text>
-            <Text style={s.headerCommittee}>{data.committee_name} — FULL MARKSHEET</Text>
-          </View>
-          <View style={s.headerMeta}>
-            <Text style={s.headerDate}>
-              {new Date(data.computed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </Text>
+  const rollCall = data.roll_call;
+  const recTypes = data.recognition_types ?? [];
+  const recTable = data.recognition_table ?? [];
+  const verbatimList = data.verbatim_list ?? [];
+
+  function PageFooter() {
+    return (
+      <View style={s.footer} fixed>
+        <View style={s.sigBlock}>
+          <Text style={s.sigLabel}>EB SIGNATURES</Text>
+          <View style={s.sigRow}>
+            {data.eb_members.map((m, i) => (
+              <View key={i} style={s.sigItem}>
+                <Text style={s.sigName}>{m.name}</Text>
+                <Text style={s.sigRole}>{m.role}</Text>
+              </View>
+            ))}
           </View>
         </View>
+        <View style={s.footerRight}>
+          <Text style={s.footerBrand}>Markzo · markzo.sandnco.lol · Transparent MUN marking</Text>
+          <Text style={s.footerBrand}>Computed: {new Date(data.computed_at).toLocaleString()}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  function PageHeader({ subtitle }: { subtitle: string }) {
+    return (
+      <View style={s.header}>
+        <Text style={s.headerWordmark}>MARKZO</Text>
+        <View style={s.headerCenter}>
+          <Text style={s.headerConference}>{data.conference_name}</Text>
+          <Text style={s.headerCommittee}>{data.committee_name} — {subtitle}</Text>
+        </View>
+        <View style={s.headerMeta}>
+          <Text style={s.headerDate}>
+            {new Date(data.computed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const statusLabel = (s: string | null | undefined) => {
+    if (s === 'present_and_voting') return 'P&V';
+    if (s === 'present') return 'P';
+    if (s === 'absent') return 'A';
+    return '—';
+  };
+
+  return (
+    <Document title="Markzo — Full Committee Marksheet">
+
+      {/* ── PAGE 1: Rankings ───────────────────────────────────────────── */}
+      <Page size="A4" style={{ ...s.page, paddingBottom: 80 }} orientation="landscape">
+        <PageHeader subtitle="FULL MARKSHEET" />
 
         {/* Committee statistics */}
         {data.stats && (
@@ -444,25 +507,176 @@ export function FullCommitteeMarksheetDocument({
           </>
         )}
 
-        {/* Footer */}
-        <View style={s.footer} fixed>
-          <View style={s.sigBlock}>
-            <Text style={s.sigLabel}>EB SIGNATURES</Text>
-            <View style={s.sigRow}>
-              {data.eb_members.map((m, i) => (
-                <View key={i} style={s.sigItem}>
-                  <Text style={s.sigName}>{m.name}</Text>
-                  <Text style={s.sigRole}>{m.role}</Text>
+        <PageFooter />
+      </Page>
+
+      {/* ── PAGE 2: Roll Call ──────────────────────────────────────────── */}
+      {rollCall && (
+        <Page size="A4" style={s.page}>
+          <PageHeader subtitle="ROLL CALL" />
+
+          {/* Stats chips */}
+          <View style={{ ...s.statsRow, marginBottom: 14 }}>
+            {[
+              { label: 'TOTAL DELEGATES', value: rollCall.total },
+              { label: 'PRESENT (P)', value: rollCall.present },
+              { label: 'PRESENT & VOTING', value: rollCall.pav },
+              { label: 'ABSENT', value: rollCall.absent },
+              { label: 'QUORUM', value: rollCall.quorum },
+            ].map((item) => (
+              <View key={item.label} style={s.statChip}>
+                <Text style={s.statChipLabel}>{item.label}</Text>
+                <Text style={s.statChipValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Majority thresholds */}
+          <Text style={s.sectionTitle}>VOTING THRESHOLDS</Text>
+          <View style={{ ...s.statsRow, marginBottom: 14 }}>
+            {[
+              { label: 'SIMPLE MAJORITY (>50% of P&V)', value: rollCall.simple_majority },
+              { label: 'SPECIAL MAJORITY (2/3 of P&V)', value: rollCall.special_majority },
+              { label: 'VOTING (P&V)', value: rollCall.pav },
+            ].map((item) => (
+              <View key={item.label} style={{ ...s.statChip, flex: 1 }}>
+                <Text style={s.statChipLabel}>{item.label}</Text>
+                <Text style={{ ...s.statChipValue, fontSize: 18 }}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Roll call list */}
+          <Text style={s.sectionTitle}>ATTENDANCE LIST</Text>
+          <View style={s.table}>
+            <View style={s.tableHeaderRow}>
+              <View style={{ width: '5%', padding: '3px 5px' }}><Text style={s.cellBold}>#</Text></View>
+              <View style={{ flex: 1, padding: '3px 5px' }}><Text style={s.cellBold}>Delegate</Text></View>
+              <View style={{ width: '20%', padding: '3px 5px' }}><Text style={s.cellBold}>Country</Text></View>
+              <View style={{ width: '18%', padding: '3px 5px' }}><Text style={s.cellBold}>Status</Text></View>
+            </View>
+            {rollCall.delegates.map((d, i) => (
+              <View key={i} style={i === rollCall.delegates.length - 1 ? s.tableRowLast : s.tableRow}>
+                <View style={{ width: '5%', padding: '3px 5px' }}><Text style={s.cellTxt}>{i + 1}</Text></View>
+                <View style={{ flex: 1, padding: '3px 5px' }}><Text style={s.cellTxt}>{d.name}</Text></View>
+                <View style={{ width: '20%', padding: '3px 5px' }}><Text style={{ fontSize: 7.5, color: MID }}>{d.country ?? ''}</Text></View>
+                <View style={{ width: '18%', padding: '3px 5px' }}>
+                  <Text style={{
+                    fontSize: 8, fontFamily: 'Helvetica-Bold',
+                    color: d.status === 'present_and_voting' ? '#b8860b'
+                      : d.status === 'present' ? '#2e7d32'
+                      : d.status === 'absent' ? '#888'
+                      : MID,
+                  }}>
+                    {statusLabel(d.status)}
+                  </Text>
                 </View>
-              ))}
+              </View>
+            ))}
+          </View>
+
+          <PageFooter />
+        </Page>
+      )}
+
+      {/* ── PAGE 3: Recognitions ───────────────────────────────────────── */}
+      {recTypes.length > 0 && (
+        <Page size="A4" style={s.page} orientation={recTypes.length > 4 ? 'landscape' : 'portrait'}>
+          <PageHeader subtitle="RECOGNITIONS" />
+
+          {/* Committee totals */}
+          <View style={{ ...s.statsRow, marginBottom: 14 }}>
+            {recTypes.map((t) => (
+              <View key={t.id} style={s.statChip}>
+                <Text style={s.statChipLabel}>{t.name.toUpperCase()}</Text>
+                <Text style={s.statChipValue}>
+                  {recTable.reduce((s, r) => s + (r.counts.find((c) => c.type_id === t.id)?.count ?? 0), 0)}
+                </Text>
+              </View>
+            ))}
+            <View style={s.statChip}>
+              <Text style={s.statChipLabel}>TOTAL</Text>
+              <Text style={s.statChipValue}>{recTable.reduce((s, r) => s + r.total, 0)}</Text>
             </View>
           </View>
-          <View style={s.footerRight}>
-            <Text style={s.footerBrand}>Markzo · markzo.sandnco.lol · Transparent MUN marking</Text>
-            <Text style={s.footerBrand}>Computed: {new Date(data.computed_at).toLocaleString()}</Text>
+
+          <Text style={s.sectionTitle}>RECOGNITION BREAKDOWN — PER DELEGATE</Text>
+          <View style={s.table}>
+            <View style={s.tableHeaderRow}>
+              <View style={{ width: '30%', padding: '3px 5px' }}><Text style={s.cellBold}>Delegate</Text></View>
+              {recTypes.map((t) => (
+                <View key={t.id} style={{ flex: 1, padding: '3px 5px' }}>
+                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold' }}>{t.name}</Text>
+                </View>
+              ))}
+              <View style={{ width: '10%', padding: '3px 5px' }}><Text style={s.cellBold}>Total</Text></View>
+            </View>
+            {recTable.map((r, i) => (
+              <View key={r.delegate_id} style={i === recTable.length - 1 ? s.tableRowLast : s.tableRow}>
+                <View style={{ width: '30%', padding: '3px 5px' }}>
+                  <Text style={{ fontSize: 8 }}>{r.name}</Text>
+                  {r.country && <Text style={{ fontSize: 6.5, color: MID }}>{r.country}</Text>}
+                </View>
+                {recTypes.map((t) => {
+                  const c = r.counts.find((x) => x.type_id === t.id);
+                  return (
+                    <View key={t.id} style={{ flex: 1, padding: '3px 5px' }}>
+                      <Text style={{ fontSize: 8.5, fontFamily: c && c.count > 0 ? 'Helvetica-Bold' : 'Helvetica' }}>
+                        {c?.count ?? 0}
+                      </Text>
+                    </View>
+                  );
+                })}
+                <View style={{ width: '10%', padding: '3px 5px' }}>
+                  <Text style={s.cellBold}>{r.total}</Text>
+                </View>
+              </View>
+            ))}
           </View>
-        </View>
-      </Page>
+
+          <PageFooter />
+        </Page>
+      )}
+
+      {/* ── PAGE 4: Verbatim ───────────────────────────────────────────── */}
+      {verbatimList.length > 0 && (
+        <Page size="A4" style={s.page}>
+          <PageHeader subtitle="VERBATIM RECORD (GSL)" />
+
+          <Text style={s.sectionTitle}>DELEGATE SPEECHES & REMARKS</Text>
+
+          {verbatimList.map((v, i) => (
+            <View key={i} style={{ marginBottom: 14, paddingBottom: 12,
+              borderBottomWidth: i === verbatimList.length - 1 ? 0 : 0.5,
+              borderBottomColor: RULE, borderBottomStyle: 'solid' }}>
+              {/* Delegate name */}
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4, gap: 6 }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Helvetica-Bold' }}>{v.name}</Text>
+                {v.country && <Text style={{ fontSize: 8, color: MID }}>{v.country}</Text>}
+              </View>
+
+              {/* Verbatim */}
+              {v.verbatim && (
+                <>
+                  <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: MID, letterSpacing: 0.8, marginBottom: 3 }}>VERBATIM</Text>
+                  <Text style={s.verbatimBlock}>{v.verbatim}</Text>
+                </>
+              )}
+
+              {/* EB Remarks */}
+              {v.eb_remarks && (
+                <>
+                  <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: MID, letterSpacing: 0.8, marginTop: 6, marginBottom: 3 }}>EB REMARKS</Text>
+                  <Text style={s.remarksBlock}>{v.eb_remarks}</Text>
+                </>
+              )}
+            </View>
+          ))}
+
+          <PageFooter />
+        </Page>
+      )}
+
     </Document>
   );
 }

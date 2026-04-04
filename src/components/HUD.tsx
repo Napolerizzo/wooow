@@ -313,10 +313,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   domain: {
     fontFamily: 'var(--font-mono)', fontSize: '11px',
-    color: '#2a2a2a', letterSpacing: '0.03em',
+    color: '#444', letterSpacing: '0.03em',
   },
   copy: {
-    fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#1e1e1e',
+    fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#333',
   },
   committeeNav: {
     position: 'absolute', bottom: '18px', right: '20px',

@@ -186,6 +186,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      recognition_types: {
+        Row: {
+          id: string; committee_id: string; name: string;
+          sort_order: number; created_at: string;
+        };
+        Insert: {
+          id?: string; committee_id: string; name: string;
+          sort_order?: number; created_at?: string;
+        };
+        Update: {
+          id?: string; committee_id?: string; name?: string;
+          sort_order?: number; created_at?: string;
+        };
+        Relationships: [];
+      };
+      recognition_entries: {
+        Row: {
+          id: string; committee_id: string; delegate_id: string;
+          recognition_type_id: string; count: number; updated_at: string;
+        };
+        Insert: {
+          id?: string; committee_id: string; delegate_id: string;
+          recognition_type_id: string; count?: number; updated_at?: string;
+        };
+        Update: {
+          id?: string; committee_id?: string; delegate_id?: string;
+          recognition_type_id?: string; count?: number; updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

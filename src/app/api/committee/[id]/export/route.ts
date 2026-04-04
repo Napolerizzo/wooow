@@ -70,6 +70,8 @@ export async function GET(
     marksheetRes,
     auditRes,
     tiersRes,
+    recognitionTypesRes,
+    recognitionEntriesRes,
   ] = await Promise.all([
     admin.from('committees')
       .select('id, name, is_locked, locked_at, conference_id')
@@ -82,6 +84,10 @@ export async function GET(
     admin.from('final_marksheets').select('*').eq('committee_id', committeeId).order('computed_at', { ascending: false }).limit(1).maybeSingle(),
     admin.from('mark_edits').select('id, edited_at, edited_by_guest_name, old_score, new_score, note').eq('committee_id', committeeId).order('edited_at'),
     admin.from('award_tiers').select('*').eq('committee_id', committeeId).order('sort_order'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any).from('recognition_types').select('*').eq('committee_id', committeeId).order('sort_order'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any).from('recognition_entries').select('*').eq('committee_id', committeeId),
   ]);
 
   // Get conference name
@@ -119,6 +125,10 @@ export async function GET(
   const auditLog = auditRes.data ?? [];
   const tiers = tiersRes.data ?? [];
   const computedAt = marksheet?.computed_at ?? new Date().toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionTypes: any[] = recognitionTypesRes?.data ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionEntries: any[] = recognitionEntriesRes?.data ?? [];
 
   // Compute rankings
   const totals = delegates.map((d) => {
@@ -195,6 +205,37 @@ export async function GET(
       .map((r) => r.delegate.name),
   }));
 
+  // Roll call stats + majority thresholds
+  const presentCount = delegates.filter((d) => d.roll_call_status === 'present').length;
+  const pavCount = delegates.filter((d) => d.roll_call_status === 'present_and_voting').length;
+  const absentCount = delegates.filter((d) => d.roll_call_status === 'absent').length;
+  const totalCount = delegates.length;
+  const voting = pavCount; // only P&V delegates vote
+  const simpleMajority = Math.floor(voting / 2) + 1;
+  const specialMajority = Math.ceil((voting * 2) / 3);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const quorumFraction = (committee as any)?.quorum_fraction ?? 0.25;
+  const quorum = Math.ceil(totalCount * quorumFraction);
+
+  // Recognition table: per-delegate per-type counts
+  const recognitionTable = delegates.map((d) => ({
+    delegate_id: d.id,
+    name: d.name,
+    country: d.country,
+    counts: recognitionTypes.map((t) => ({
+      type_id: t.id,
+      type_name: t.name,
+      count: recognitionEntries.find((e) => e.delegate_id === d.id && e.recognition_type_id === t.id)?.count ?? 0,
+    })),
+    total: recognitionTypes.reduce((s, t) =>
+      s + (recognitionEntries.find((e) => e.delegate_id === d.id && e.recognition_type_id === t.id)?.count ?? 0), 0),
+  }));
+
+  // Verbatim list
+  const verbatimList = delegates
+    .filter((d) => d.verbatim)
+    .map((d) => ({ name: d.name, country: d.country, verbatim: d.verbatim, eb_remarks: d.eb_remarks }));
+
   return NextResponse.json({
     sheets,
     full_marksheet: {
@@ -218,6 +259,22 @@ export async function GET(
       })),
       schema_fields: schema.map((f) => ({ id: f.id, field_name: f.field_name })),
       award_assignments: awardGroups,
+      // Page 2: Roll call
+      roll_call: {
+        delegates: delegates.map((d) => ({ name: d.name, country: d.country, status: d.roll_call_status })),
+        present: presentCount,
+        pav: pavCount,
+        absent: absentCount,
+        total: totalCount,
+        quorum,
+        simple_majority: simpleMajority,
+        special_majority: specialMajority,
+      },
+      // Page 3: Recognitions
+      recognition_types: recognitionTypes.map((t) => ({ id: t.id, name: t.name })),
+      recognition_table: recognitionTable,
+      // Page 4: Verbatim
+      verbatim_list: verbatimList,
     },
     audit_log: auditLog,
   });

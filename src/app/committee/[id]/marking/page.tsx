@@ -9,6 +9,7 @@ import type { Database } from '@/types/database';
 import TableView from '@/components/marking/TableView';
 import DelegateView from '@/components/marking/DelegateView';
 import RollCallSection from '@/components/marking/RollCallSection';
+import RecognitionSection from '@/components/marking/RecognitionSection';
 import ErrorOverlay from '@/components/ErrorOverlay';
 
 type Delegate   = Database['public']['Tables']['delegates']['Row'];
@@ -418,6 +419,9 @@ export default function MarkingPage() {
             .eq('id', committeeId);
         }}
       />
+
+      {/* ── Recognition Tracker ───────────────────────────────────────── */}
+      <RecognitionSection committeeId={committeeId} delegates={delegates} />
 
       {/* ── Marking View ──────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
