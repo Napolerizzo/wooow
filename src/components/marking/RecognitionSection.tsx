@@ -28,6 +28,16 @@ interface Props {
   delegates: Delegate[];
 }
 
+const PRESET_TYPES = [
+  { name: 'POI',              emoji: '🙋' },
+  { name: 'POO',              emoji: '🔔' },
+  { name: 'POI REPLIES',      emoji: '↩️' },
+  { name: 'SPEECH',           emoji: '🎤' },
+  { name: 'DOC',              emoji: '📄' },
+  { name: 'POI CHIT',         emoji: '📝' },
+  { name: 'SUBSTANTIVE CHIT', emoji: '📋' },
+];
+
 export default function RecognitionSection({ committeeId, delegates }: Props) {
   const [open, setOpen] = useState(true);
   const [types, setTypes] = useState<RecognitionType[]>([]);
@@ -35,6 +45,7 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
   const [loading, setLoading] = useState(true);
   const [addingType, setAddingType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
+  const [showPresets, setShowPresets] = useState(false);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const load = useCallback(async () => {
@@ -54,14 +65,12 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
   }
 
   function setCount(delegateId: string, typeId: string, count: number) {
-    // Optimistic update
     setEntries((prev) => {
       const existing = prev.find((e) => e.delegate_id === delegateId && e.recognition_type_id === typeId);
       if (existing) return prev.map((e) => e.delegate_id === delegateId && e.recognition_type_id === typeId ? { ...e, count } : e);
       return [...prev, { id: `local-${delegateId}-${typeId}`, delegate_id: delegateId, recognition_type_id: typeId, count }];
     });
 
-    // Debounced save
     const key = `${delegateId}-${typeId}`;
     const existing = saveTimers.current.get(key);
     if (existing) clearTimeout(existing);
@@ -76,20 +85,32 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
     saveTimers.current.set(key, t);
   }
 
-  async function addType() {
-    const name = newTypeName.trim();
-    if (!name) return;
+  async function addType(name?: string) {
+    const finalName = (name ?? newTypeName).trim();
+    if (!finalName) return;
+    const sort_order = types.length;
+    const res = await fetch(`/api/committee/${committeeId}/recognitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert_type', name: finalName, sort_order }),
+    });
+    if (res.ok) {
+      setNewTypeName('');
+      setAddingType(false);
+      setShowPresets(false);
+      load();
+    }
+  }
+
+  async function addPresetType(name: string) {
+    if (types.some((t) => t.name.toUpperCase() === name.toUpperCase())) return;
     const sort_order = types.length;
     const res = await fetch(`/api/committee/${committeeId}/recognitions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'upsert_type', name, sort_order }),
     });
-    if (res.ok) {
-      setNewTypeName('');
-      setAddingType(false);
-      load();
-    }
+    if (res.ok) load();
   }
 
   async function deleteType(id: string) {
@@ -105,6 +126,7 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
   // Totals
   const totalByType = types.map((t) => ({
     typeId: t.id,
+    name: t.name,
     total: delegates.reduce((s, d) => s + getCount(d.id, t.id), 0),
   }));
   const totalByDelegate = delegates.map((d) => ({
@@ -112,7 +134,12 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
     total: types.reduce((s, t) => s + getCount(d.id, t.id), 0),
   }));
 
+  const grandTotal = totalByType.reduce((s, x) => s + x.total, 0);
   const activeDelegates = delegates.filter((d) => d.roll_call_status !== 'absent');
+
+  const availablePresets = PRESET_TYPES.filter(
+    (p) => !types.some((t) => t.name.toUpperCase() === p.name.toUpperCase())
+  );
 
   return (
     <div style={styles.root}>
@@ -123,10 +150,16 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
           <span style={styles.headerLabel}>RECOGNITIONS</span>
           <span style={styles.headerSub}>
             {types.length > 0
-              ? `${types.map((t) => t.name).join(' · ')} · ${totalByType.reduce((s, x) => s + x.total, 0)} total`
+              ? types.map((t) => {
+                  const tot = totalByType.find((x) => x.typeId === t.id)?.total ?? 0;
+                  return `${t.name} ${tot}`;
+                }).join(' · ')
               : 'Click to configure recognition types'}
           </span>
         </span>
+        {grandTotal > 0 && (
+          <span style={styles.headerGrandTotal}>{grandTotal} total</span>
+        )}
         <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
       </button>
 
@@ -143,112 +176,151 @@ export default function RecognitionSection({ committeeId, delegates }: Props) {
             <div style={styles.body}>
               {loading ? (
                 <p style={styles.hint}>Loading...</p>
-              ) : types.length === 0 && !addingType ? (
-                <div style={styles.emptyState}>
-                  <p style={styles.hint}>No recognition types yet. Add columns like POI, POO, Right of Reply, etc.</p>
-                  <button style={styles.addTypeBtn} onClick={() => setAddingType(true)}>+ ADD COLUMN</button>
-                </div>
               ) : (
                 <>
-                  {/* Table */}
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          <th style={{ ...styles.th, textAlign: 'left', minWidth: 120 }}>DELEGATE</th>
-                          {types.map((t) => (
-                            <th key={t.id} style={styles.th}>
-                              <div style={styles.typeHeader}>
-                                <span>{t.name}</span>
-                                <button
-                                  style={styles.deleteTypeBtn}
-                                  onClick={() => deleteType(t.id)}
-                                  title={`Remove ${t.name}`}
-                                  aria-label={`Delete ${t.name}`}
-                                >×</button>
-                              </div>
-                              <div style={styles.typeTotal}>
-                                {totalByType.find((x) => x.typeId === t.id)?.total ?? 0}
-                              </div>
-                            </th>
-                          ))}
-                          <th style={{ ...styles.th, color: '#888' }}>TOTAL</th>
-                          {addingType && (
-                            <th style={styles.th}>
-                              <input
-                                autoFocus
-                                value={newTypeName}
-                                onChange={(e) => setNewTypeName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') addType();
-                                  if (e.key === 'Escape') { setAddingType(false); setNewTypeName(''); }
-                                }}
-                                placeholder="NAME…"
-                                style={styles.newTypeInput}
-                                maxLength={20}
-                                aria-label="New recognition type name"
-                              />
-                              <div style={styles.newTypeBtns}>
-                                <button style={styles.confirmBtn} onClick={addType}>✓</button>
-                                <button style={styles.cancelBtn} onClick={() => { setAddingType(false); setNewTypeName(''); }}>✕</button>
-                              </div>
-                            </th>
-                          )}
-                          <th style={styles.addColTh}>
-                            {!addingType && (
-                              <button style={styles.addTypeBtn} onClick={() => setAddingType(true)}>+</button>
-                            )}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeDelegates.map((d) => {
-                          const delegateTotal = totalByDelegate.find((x) => x.delegateId === d.id)?.total ?? 0;
-                          return (
-                            <tr key={d.id} style={styles.tr}>
-                              <td style={styles.nameTd}>
-                                <span style={styles.delegateName}>{d.name}</span>
-                                {d.country && <span style={styles.delegateCountry}>{d.country}</span>}
-                              </td>
+                  {/* Preset quick-add strip */}
+                  {availablePresets.length > 0 && (
+                    <div style={styles.presetStrip}>
+                      <span style={styles.presetLabel}>QUICK ADD</span>
+                      <div style={styles.presetChips}>
+                        {availablePresets.map((p) => (
+                          <button
+                            key={p.name}
+                            style={styles.presetChip}
+                            onClick={() => addPresetType(p.name)}
+                            title={`Add ${p.name} column`}
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                        <button
+                          style={styles.addAllBtn}
+                          onClick={async () => {
+                            for (const p of availablePresets) {
+                              await addPresetType(p.name);
+                            }
+                          }}
+                          title="Add all preset types at once"
+                        >
+                          + ALL
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {types.length === 0 && !addingType ? (
+                    <div style={styles.emptyState}>
+                      <p style={styles.hint}>No recognition types yet. Use quick-add above or create a custom type.</p>
+                      <button style={styles.addTypeBtn} onClick={() => setAddingType(true)}>+ CUSTOM</button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Table */}
+                      <div style={{ overflowX: 'auto', marginTop: availablePresets.length > 0 ? 12 : 0 }}>
+                        <table style={styles.table}>
+                          <thead>
+                            <tr>
+                              <th style={{ ...styles.th, textAlign: 'left', minWidth: 140 }}>DELEGATE</th>
                               {types.map((t) => (
-                                <td key={t.id} style={styles.countTd}>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={999}
-                                    value={getCount(d.id, t.id)}
-                                    onChange={(e) => setCount(d.id, t.id, Math.max(0, parseInt(e.target.value, 10) || 0))}
-                                    onFocus={(e) => e.target.select()}
-                                    style={styles.countInput}
-                                    aria-label={`${d.name} ${t.name} count`}
-                                  />
-                                </td>
+                                <th key={t.id} style={styles.th}>
+                                  <div style={styles.typeHeader}>
+                                    <span style={styles.typeName}>{t.name}</span>
+                                    <button
+                                      style={styles.deleteTypeBtn}
+                                      onClick={() => deleteType(t.id)}
+                                      title={`Remove ${t.name}`}
+                                      aria-label={`Delete ${t.name}`}
+                                    >×</button>
+                                  </div>
+                                  <div style={styles.typeTotal}>
+                                    {totalByType.find((x) => x.typeId === t.id)?.total ?? 0}
+                                  </div>
+                                </th>
                               ))}
-                              <td style={{ ...styles.countTd, color: '#888', fontWeight: 700 }}>
-                                {delegateTotal}
-                              </td>
-                              {addingType && <td style={styles.countTd} />}
-                              <td style={styles.countTd} />
+                              <th style={{ ...styles.th, color: '#666', borderLeft: '1px solid #2a2a2a' }}>TOTAL</th>
+                              {addingType && (
+                                <th style={styles.th}>
+                                  <input
+                                    autoFocus
+                                    value={newTypeName}
+                                    onChange={(e) => setNewTypeName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') addType();
+                                      if (e.key === 'Escape') { setAddingType(false); setNewTypeName(''); }
+                                    }}
+                                    placeholder="NAME…"
+                                    style={styles.newTypeInput}
+                                    maxLength={20}
+                                    aria-label="New recognition type name"
+                                  />
+                                  <div style={styles.newTypeBtns}>
+                                    <button style={styles.confirmBtn} onClick={() => addType()}>✓</button>
+                                    <button style={styles.cancelBtn} onClick={() => { setAddingType(false); setNewTypeName(''); }}>✕</button>
+                                  </div>
+                                </th>
+                              )}
+                              <th style={styles.addColTh}>
+                                {!addingType && (
+                                  <button style={styles.addTypeBtn} onClick={() => setAddingType(true)} title="Add custom recognition type">+</button>
+                                )}
+                              </th>
                             </tr>
-                          );
-                        })}
-                        {/* Totals row */}
-                        <tr style={styles.totalRow}>
-                          <td style={{ ...styles.nameTd, color: '#888', fontSize: '10px', letterSpacing: '0.08em' }}>COMMITTEE TOTAL</td>
-                          {types.map((t) => (
-                            <td key={t.id} style={{ ...styles.countTd, color: '#e0a952', fontWeight: 700 }}>
-                              {totalByType.find((x) => x.typeId === t.id)?.total ?? 0}
-                            </td>
-                          ))}
-                          <td style={{ ...styles.countTd, color: '#e0a952', fontWeight: 700 }}>
-                            {totalByType.reduce((s, x) => s + x.total, 0)}
-                          </td>
-                          {addingType && <td style={styles.countTd} />}
-                          <td style={styles.countTd} />
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody>
+                            {activeDelegates.map((d) => {
+                              const delegateTotal = totalByDelegate.find((x) => x.delegateId === d.id)?.total ?? 0;
+                              return (
+                                <tr key={d.id} style={styles.tr}>
+                                  <td style={styles.nameTd}>
+                                    <span style={styles.delegateName}>{d.name}</span>
+                                    {d.country && <span style={styles.delegateCountry}>{d.country}</span>}
+                                  </td>
+                                  {types.map((t) => (
+                                    <td key={t.id} style={styles.countTd}>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={999}
+                                        value={getCount(d.id, t.id)}
+                                        onChange={(e) => setCount(d.id, t.id, Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                        onFocus={(e) => e.target.select()}
+                                        style={styles.countInput}
+                                        aria-label={`${d.name} ${t.name} count`}
+                                      />
+                                    </td>
+                                  ))}
+                                  <td style={{ ...styles.countTd, color: '#888', fontWeight: 700, borderLeft: '1px solid #2a2a2a' }}>
+                                    {delegateTotal}
+                                  </td>
+                                  {addingType && <td style={styles.countTd} />}
+                                  <td style={styles.countTd} />
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Committee totals summary */}
+                      {types.length > 0 && (
+                        <div style={styles.totalsSection}>
+                          <div style={styles.totalsLabel}>COMMITTEE TOTALS</div>
+                          <div style={styles.totalsGrid}>
+                            {totalByType.map((t) => (
+                              <div key={t.typeId} style={styles.totalChip}>
+                                <span style={styles.totalChipName}>{t.name}</span>
+                                <span style={styles.totalChipValue}>{t.total}</span>
+                              </div>
+                            ))}
+                            <div style={{ ...styles.totalChip, ...styles.totalChipGrand }}>
+                              <span style={styles.totalChipName}>GRAND TOTAL</span>
+                              <span style={{ ...styles.totalChipValue, ...styles.totalChipGrandValue }}>{grandTotal}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -279,12 +351,40 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#444',
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
+  headerGrandTotal: {
+    fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#e0a952',
+    fontWeight: 700, flexShrink: 0, marginRight: 4,
+  },
   chevron: {
     fontSize: '12px', color: '#444', flexShrink: 0,
     transition: 'transform 0.2s',
   },
   body: { padding: '0 20px 16px' },
   hint: { fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#555', marginBottom: '12px' },
+
+  // Preset strip
+  presetStrip: {
+    display: 'flex', alignItems: 'center', gap: '10px',
+    padding: '8px 0 4px', flexWrap: 'wrap',
+  },
+  presetLabel: {
+    fontFamily: 'var(--font-body)', fontSize: '8px', letterSpacing: '0.12em',
+    color: '#444', flexShrink: 0,
+  },
+  presetChips: { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' },
+  presetChip: {
+    background: 'none', border: '1px solid #252525', color: '#666',
+    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.06em',
+    cursor: 'pointer', padding: '3px 8px',
+    transition: 'color 0.15s, border-color 0.15s',
+  },
+  addAllBtn: {
+    background: 'none', border: '1px solid #333', color: '#e0a952',
+    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.06em',
+    cursor: 'pointer', padding: '3px 8px',
+    transition: 'color 0.15s, border-color 0.15s',
+  },
+
   emptyState: { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' },
   table: { borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' },
   th: {
@@ -293,9 +393,10 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   typeHeader: { display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' },
+  typeName: { fontFamily: 'var(--font-body)', fontSize: '9px', letterSpacing: '0.08em', color: '#777' },
   typeTotal: { fontSize: '14px', fontFamily: 'var(--font-mono)', color: '#888', marginTop: '2px' },
   deleteTypeBtn: {
-    background: 'none', border: 'none', cursor: 'pointer', color: '#333',
+    background: 'none', border: 'none', cursor: 'pointer', color: '#2a2a2a',
     fontSize: '12px', padding: '0 2px', lineHeight: 1,
     transition: 'color 0.15s',
   },
@@ -321,7 +422,6 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'color 0.15s, border-color 0.15s',
   },
   tr: { borderBottom: '1px solid #111' },
-  totalRow: { borderTop: '1px solid #2a2a2a' },
   nameTd: {
     padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: '1px',
   },
@@ -335,4 +435,40 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none', appearance: 'textfield',
     MozAppearance: 'textfield',
   } as React.CSSProperties,
+
+  // Committee totals section
+  totalsSection: {
+    marginTop: '16px',
+    padding: '12px 0 0',
+    borderTop: '1px solid #1e1e1e',
+  },
+  totalsLabel: {
+    fontFamily: 'var(--font-body)', fontSize: '8px', letterSpacing: '0.12em',
+    color: '#444', marginBottom: '8px',
+  },
+  totalsGrid: {
+    display: 'flex', flexWrap: 'wrap', gap: '6px',
+  },
+  totalChip: {
+    display: 'flex', flexDirection: 'column', gap: '2px',
+    padding: '6px 12px',
+    border: '1px solid #1e1e1e',
+    background: '#0d0d0d',
+    minWidth: '70px',
+  },
+  totalChipName: {
+    fontFamily: 'var(--font-body)', fontSize: '7px', letterSpacing: '0.1em',
+    color: '#444', whiteSpace: 'nowrap',
+  },
+  totalChipValue: {
+    fontFamily: 'var(--font-mono)', fontSize: '18px', color: '#888',
+    fontWeight: 700, lineHeight: 1,
+  },
+  totalChipGrand: {
+    border: '1px solid #2a2a2a',
+    background: '#0f0f0f',
+  },
+  totalChipGrandValue: {
+    color: '#e0a952', fontSize: '22px',
+  },
 };
