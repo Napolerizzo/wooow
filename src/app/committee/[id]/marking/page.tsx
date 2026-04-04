@@ -108,9 +108,6 @@ export default function MarkingPage() {
         event: '*', schema: 'public', table: 'marks',
         filter: `committee_id=eq.${committeeId}`,
       }, (payload) => {
-        if (payload.new && (payload.new as Mark).committee_id !== committeeId) return;
-        if (payload.old && (payload.old as Mark).committee_id !== committeeId) return;
-
         setMarks((prev) => {
           if (payload.eventType === 'INSERT') return [...prev, payload.new as Mark];
           if (payload.eventType === 'UPDATE') {
@@ -126,7 +123,9 @@ export default function MarkingPage() {
             return prev.map((m) => m.id === updated.id ? updated : m);
           }
           if (payload.eventType === 'DELETE') {
-            return prev.filter((m) => m.id !== (payload.old as { id: string }).id);
+            const deletedId = (payload.old as { id?: string }).id;
+            if (!deletedId) return prev;
+            return prev.filter((m) => m.id !== deletedId);
           }
           return prev;
         });
@@ -135,7 +134,6 @@ export default function MarkingPage() {
         event: 'UPDATE', schema: 'public', table: 'delegates',
         filter: `committee_id=eq.${committeeId}`,
       }, (payload) => {
-        if ((payload.new as Delegate).committee_id !== committeeId) return;
         setDelegates((prev) =>
           prev.map((d) => d.id === (payload.new as Delegate).id ? (payload.new as Delegate) : d)
         );
@@ -272,6 +270,10 @@ export default function MarkingPage() {
     roll_call_status?: 'present' | 'present_and_voting' | 'absent';
     verbatim?: string; eb_remarks?: string; withdrawn_at?: string | null;
   }) {
+    // Optimistic local update for instant UI feedback (realtime will confirm)
+    setDelegates((prev) =>
+      prev.map((d) => d.id === delegateId ? { ...d, ...updates } : d)
+    );
     await fetch(`/api/committee/${committeeId}/delegates`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
